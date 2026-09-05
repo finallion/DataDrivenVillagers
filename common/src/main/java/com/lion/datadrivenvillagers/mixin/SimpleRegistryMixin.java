@@ -11,7 +11,6 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.SimpleRegistry;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.tag.PointOfInterestTypeTags;
-import net.minecraft.registry.tag.TagGroupLoader;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.poi.PointOfInterestType;
@@ -31,59 +30,47 @@ import java.util.Map;
 
 /// Appends our points of interest to `minecraft:acquirable_job_site` while the tag is bound. The job
 /// site sensor only considers POIs in that tag, and the ids do not exist before the config folder is
-/// read, so a datapack tag file cannot carry them. Two hooks: `startTagReload` is the datapack path
-/// that reaches static registries, `setEntries` covers initial load and network sync.
+/// read, so a datapack tag file cannot carry them. `populateTags` is the single binding point and
+/// covers all three paths: initial load, datapack reload and network sync.
 @Mixin(SimpleRegistry.class)
 public abstract class SimpleRegistryMixin<T> {
 
     @Shadow
     public abstract RegistryKey<? extends Registry<T>> getKey();
 
-    @ModifyVariable(method = "startTagReload", at = @At("HEAD"), argsOnly = true, ordinal = 0)
-    private TagGroupLoader.RegistryTags<T> datadrivenvillagers$addJobSitesOnReload(
-            TagGroupLoader.RegistryTags<T> registryTags) {
+    @ModifyVariable(method = "populateTags", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+    private Map<TagKey<T>, List<RegistryEntry<T>>> datadrivenvillagers$addJobSites(
+            Map<TagKey<T>, List<RegistryEntry<T>>> tags) {
         if (!isPointOfInterestRegistry() || ProfessionRegistry.poiEntries().isEmpty()) {
-            return registryTags;
+            return tags;
         }
 
-        Map<TagKey<T>, List<RegistryEntry<T>>> tags = new HashMap<>(registryTags.tags());
         TagKey<T> jobSites = acquirableJobSite();
         List<RegistryEntry<T>> merged = new ArrayList<>(tags.getOrDefault(jobSites, List.of()));
         if (append(merged) == 0) {
-            return registryTags;
+            return tags;
         }
 
-        tags.put(jobSites, List.copyOf(merged));
-        return new TagGroupLoader.RegistryTags<>(registryTags.key(), tags);
+        Map<TagKey<T>, List<RegistryEntry<T>>> patched = new HashMap<>(tags);
+        patched.put(jobSites, List.copyOf(merged));
+        return patched;
     }
 
-    /// Mixin captures target arguments all or nothing, so the full parameter list follows the value.
-    @ModifyVariable(method = "setEntries", at = @At("HEAD"), argsOnly = true, ordinal = 0)
-    private List<RegistryEntry<T>> datadrivenvillagers$addJobSites(List<RegistryEntry<T>> value,
-                                                                  TagKey<T> tag,
-                                                                  List<RegistryEntry<T>> entries) {
-        if (!isPointOfInterestRegistry() || !PointOfInterestTypeTags.ACQUIRABLE_JOB_SITE.equals(tag)) {
-            return entries;
-        }
-
-        List<RegistryEntry<T>> merged = new ArrayList<>(entries);
-        return append(merged) == 0 ? entries : List.copyOf(merged);
-    }
-
-    /// Read-only: hands the members of each biome tag to the type loader. Biomes are a datapack
-    /// registry, so they arrive through `setEntries`, not `startTagReload`.
-    @Inject(method = "setEntries", at = @At("HEAD"))
-    private void datadrivenvillagers$readBiomeTags(TagKey<T> tag, List<RegistryEntry<T>> entries,
+    /// Read-only: hands the members of each biome tag to the type loader.
+    @Inject(method = "populateTags", at = @At("HEAD"))
+    private void datadrivenvillagers$readBiomeTags(Map<TagKey<T>, List<RegistryEntry<T>>> tags,
                                                    CallbackInfo ci) {
         if (!RegistryKeys.BIOME.equals(getKey()) || TypeRegistry.withBiomeTags().isEmpty()) {
             return;
         }
 
-        List<Identifier> biomes = new ArrayList<>();
-        for (RegistryEntry<T> entry : entries) {
-            entry.getKey().ifPresent(key -> biomes.add(key.getValue()));
+        for (Map.Entry<TagKey<T>, List<RegistryEntry<T>>> tag : tags.entrySet()) {
+            List<Identifier> biomes = new ArrayList<>();
+            for (RegistryEntry<T> entry : tag.getValue()) {
+                entry.getKey().ifPresent(key -> biomes.add(key.getValue()));
+            }
+            TypeLoader.claimTaggedBiomes(tag.getKey().id(), biomes);
         }
-        TypeLoader.claimTaggedBiomes(tag.id(), biomes);
     }
 
     @Unique

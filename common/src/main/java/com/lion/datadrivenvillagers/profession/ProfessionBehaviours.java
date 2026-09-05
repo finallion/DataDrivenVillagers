@@ -4,7 +4,6 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.brain.MemoryModuleType;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
 import net.minecraft.village.VillagerProfession;
@@ -19,16 +18,17 @@ public final class ProfessionBehaviours {
     private ProfessionBehaviours() {
     }
 
-    public static Optional<ProfessionDefinition> of(RegistryEntry<VillagerProfession> profession) {
-        return profession.getKey().map(RegistryKey::getValue).flatMap(ProfessionRegistry::get);
+    public static Optional<ProfessionDefinition> of(VillagerProfession profession) {
+        return Optional.ofNullable(Registries.VILLAGER_PROFESSION.getId(profession))
+                .flatMap(ProfessionRegistry::get);
     }
 
     public static Optional<ProfessionDefinition> of(VillagerEntity villager) {
-        return of(villager.getVillagerData().profession());
+        return of(villager.getVillagerData().getProfession());
     }
 
-    /// Whether vanilla's two `matchesKey(FARMER)` checks should also say yes for this profession.
-    public static boolean countsAsFarmer(RegistryEntry<VillagerProfession> profession) {
+    /// Whether vanilla's two `FARMER` checks should also say yes for this profession.
+    public static boolean countsAsFarmer(VillagerProfession profession) {
         return of(profession).map(definition -> definition.workBehaviour() == WorkBehaviour.FARM).orElse(false);
     }
 
@@ -78,11 +78,11 @@ public final class ProfessionBehaviours {
         if (profession.isEmpty()) {
             return Optional.empty();
         }
-        Optional<ProfessionDefinition> definition = of(profession.get());
+        Optional<ProfessionDefinition> definition = of(profession.get().value());
         if (definition.isEmpty() || definition.get().villages().isEmpty()) {
             return Optional.empty();
         }
-        Identifier type = villager.getVillagerData().type().getKey().map(RegistryKey::getValue).orElse(null);
+        Identifier type = Registries.VILLAGER_TYPE.getId(villager.getVillagerData().getType());
         if (type != null && definition.get().villages().contains(type)) {
             return Optional.empty();
         }

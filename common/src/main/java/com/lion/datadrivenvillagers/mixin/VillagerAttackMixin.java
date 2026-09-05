@@ -34,6 +34,6 @@ public abstract class VillagerAttackMixin {
     @ModifyReturnValue(method = "createVillagerAttributes", at = @At("RETURN"))
     private static DefaultAttributeContainer.Builder datadrivenvillagers$attackDamage(
             DefaultAttributeContainer.Builder original) {
-        return original.add(EntityAttributes.ATTACK_DAMAGE, Attack.DEFAULT_DAMAGE);
+        return original.add(EntityAttributes.GENERIC_ATTACK_DAMAGE, Attack.DEFAULT_DAMAGE);
     }
 }

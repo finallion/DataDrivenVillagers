@@ -133,7 +133,7 @@ public final class BlocksCommand {
     /// Uses the loader's own rule (one taken state makes the block unusable) so this never recommends
     /// a block the loader rejects.
     private static Optional<String> ownerOf(Identifier id) {
-        Optional<Block> block = Registries.BLOCK.getOptionalValue(id);
+        Optional<Block> block = Registries.BLOCK.getOrEmpty(id);
         if (block.isEmpty()) {
             return Optional.of("no such block");
         }

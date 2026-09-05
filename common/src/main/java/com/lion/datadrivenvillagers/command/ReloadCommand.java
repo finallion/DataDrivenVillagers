@@ -35,7 +35,7 @@ public final class ReloadCommand {
 
         List<ReloadOutcome> outcomes = new ArrayList<>(ProfessionLoader.reload(source.getServer()));
         outcomes.addAll(TypeLoader.reload(source.getServer().getRegistryManager()
-                .getOrThrow(RegistryKeys.BIOME)));
+                .get(RegistryKeys.BIOME)));
         // Structures reload whole: nbt is read on demand, pools are rebuilt per world.
         outcomes.addAll(StructureLoader.load(source.getServer()));
 

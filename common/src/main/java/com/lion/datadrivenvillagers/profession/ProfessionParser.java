@@ -116,7 +116,7 @@ public final class ProfessionParser {
                 JsonFields.positiveInt(root, "search_distance", DEFAULT_SEARCH_DISTANCE));
     }
 
-    /// `minecraft:farmer`'s values in 1.21.8 (`VillagerProfession.registerAndGetDefault`): four
+    /// `minecraft:farmer`'s values in 1.21.1 (`VillagerProfession.register`): four
     /// items, not the six newer versions have.
     public static final List<Identifier> FARM_GATHERABLE = List.of(
             Identifier.ofVanilla("wheat"), Identifier.ofVanilla("wheat_seeds"),

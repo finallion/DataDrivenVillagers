@@ -12,8 +12,7 @@ import com.lion.datadrivenvillagers.type.TypeRegistry;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import net.minecraft.client.render.entity.feature.VillagerClothingFeatureRenderer;
 import net.minecraft.client.render.entity.feature.VillagerResourceMetadata;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.registry.DefaultedRegistry;
 import net.minecraft.util.Identifier;
 
 import org.spongepowered.asm.mixin.Final;
@@ -43,7 +42,7 @@ public abstract class VillagerClothingFeatureRendererMixin {
 
     /// Serves both layers: `type` is the biome clothing underneath, `profession` the job on top.
     /// Vanilla builds the path as `textures/entity/<entity>/<layer>/<name>.png`.
-    @Inject(method = "getTexture(Ljava/lang/String;Lnet/minecraft/util/Identifier;)Lnet/minecraft/util/Identifier;",
+    @Inject(method = "findTexture(Ljava/lang/String;Lnet/minecraft/util/Identifier;)Lnet/minecraft/util/Identifier;",
             at = @At("HEAD"), cancellable = true)
     private void datadrivenvillagers$overrideTexture(String layer, Identifier id,
                                                      CallbackInfoReturnable<Identifier> cir) {
@@ -100,17 +99,16 @@ public abstract class VillagerClothingFeatureRendererMixin {
     }
 
     @Inject(method = "getHatType", at = @At("HEAD"), cancellable = true)
-    private <K> void datadrivenvillagers$overrideHat(Object2ObjectMap<RegistryKey<K>, VillagerResourceMetadata.HatType> map,
-                                                     String type, RegistryEntry<K> entry,
+    private <K> void datadrivenvillagers$overrideHat(Object2ObjectMap<K, VillagerResourceMetadata.HatType> map,
+                                                     String type, DefaultedRegistry<K> registry, K value,
                                                      CallbackInfoReturnable<VillagerResourceMetadata.HatType> cir) {
         if (!PROFESSION.equals(type)) {
             return;
         }
-        Optional<RegistryKey<K>> key = entry.getKey();
-        if (key.isEmpty()) {
+        Identifier id = registry.getId(value);
+        if (id == null) {
             return;
         }
-        Identifier id = key.get().getValue();
         Optional<HatKind> hat = SyncedLooks.profession(id).map(SyncedLooks.Look::hat);
         if (hat.isEmpty() && !SyncedLooks.active()) {
             hat = ProfessionRegistry.get(id).map(definition -> definition.hat());

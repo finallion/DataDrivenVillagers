@@ -236,7 +236,7 @@ public final class EditorFields {
         if (freeBlocks == null) {
             List<Identifier> free = new ArrayList<>();
             for (Identifier id : Registries.BLOCK.getIds()) {
-                Block block = Registries.BLOCK.getOptionalValue(id).orElse(null);
+                Block block = Registries.BLOCK.getOrEmpty(id).orElse(null);
                 if (block != null && ProfessionLoader.existingOwner(
                         PointOfInterestTypes.getStatesOfBlock(block)).isEmpty()) {
                     free.add(id);
@@ -254,7 +254,7 @@ public final class EditorFields {
         if (id == null) {
             return Optional.empty();
         }
-        return Registries.BLOCK.getOptionalValue(id)
+        return Registries.BLOCK.getOrEmpty(id)
                 .flatMap(block -> ProfessionLoader.existingOwner(PointOfInterestTypes.getStatesOfBlock(block)));
     }
 
@@ -262,7 +262,7 @@ public final class EditorFields {
     /// save does.
     public static boolean unknownBlock(String blockId) {
         Identifier id = Identifier.tryParse(blockId.trim());
-        return id == null || Registries.BLOCK.getOptionalValue(id).isEmpty();
+        return id == null || Registries.BLOCK.getOrEmpty(id).isEmpty();
     }
 
     /// Dropped when a world is left, because what is free depends on what that world had registered.

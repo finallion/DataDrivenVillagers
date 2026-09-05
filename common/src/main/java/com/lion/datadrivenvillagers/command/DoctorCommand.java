@@ -54,7 +54,7 @@ public final class DoctorCommand {
         int reports = 0;
 
         lines.add("DataDrivenVillagers doctor, " + ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
-        lines.add("Minecraft " + SharedConstants.getGameVersion().name() + ", " + PlatformInfo.loader()
+        lines.add("Minecraft " + SharedConstants.getGameVersion().getName() + ", " + PlatformInfo.loader()
                 + ", DataDrivenVillagers " + PlatformInfo.modVersion());
         lines.add("Config folder: " + ProfessionLoader.directory().getParent());
         lines.add("Loaded: " + ProfessionRegistry.ordered().size() + " profession(s), "

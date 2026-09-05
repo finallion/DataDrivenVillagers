@@ -1,7 +1,8 @@
 package com.lion.datadrivenvillagers.mixin;
 
+import com.lion.datadrivenvillagers.profession.ProfessionBehaviours;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
-import com.lion.datadrivenvillagers.profession.ProfessionRegistry;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 
 import net.minecraft.entity.ai.brain.task.GiveGiftsToHeroTask;
 import net.minecraft.entity.passive.VillagerEntity;
@@ -12,30 +13,30 @@ import net.minecraft.util.Identifier;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Optional;
 
-/// Answers `getGiftLootTable` with the profession's `gift`. Vanilla keeps a private static map of
-/// profession to loot table and falls back to the unemployed gift for anything not in it.
+/// Answers the profession's `gift`. Vanilla keeps a private static map of profession to loot table
+/// and asks it twice: `containsKey` decides whether there is a gift at all, `get` names the table.
+/// Both answers come from the definition when it has one; a baby is out before either call.
 @Mixin(GiveGiftsToHeroTask.class)
 public abstract class GiveGiftsToHeroTaskMixin {
 
-    @Inject(method = "getGiftLootTable(Lnet/minecraft/entity/passive/VillagerEntity;)Lnet/minecraft/registry/RegistryKey;",
-            at = @At("HEAD"), cancellable = true)
-    private static void datadrivenvillagers$overrideGift(VillagerEntity villager,
-                                                         CallbackInfoReturnable<RegistryKey<LootTable>> cir) {
-        // Vanilla answers babies before looking at the profession.
-        if (villager.isBaby()) {
-            return;
-        }
+    @ModifyExpressionValue(method = "getGifts",
+            at = @At(value = "INVOKE", target = "Ljava/util/Map;containsKey(Ljava/lang/Object;)Z"))
+    private boolean datadrivenvillagers$hasGift(boolean original, VillagerEntity villager) {
+        return original || datadrivenvillagers$giftId(villager).isPresent();
+    }
 
-        Optional<Identifier> gift = villager.getVillagerData().profession().getKey()
-                .map(RegistryKey::getValue)
-                .flatMap(ProfessionRegistry::get)
-                .flatMap(ProfessionDefinition::gift);
+    @ModifyExpressionValue(method = "getGifts",
+            at = @At(value = "INVOKE", target = "Ljava/util/Map;get(Ljava/lang/Object;)Ljava/lang/Object;"))
+    private Object datadrivenvillagers$gift(Object original, VillagerEntity villager) {
+        Optional<RegistryKey<LootTable>> gift = datadrivenvillagers$giftId(villager)
+                .map(id -> RegistryKey.of(RegistryKeys.LOOT_TABLE, id));
+        return gift.isPresent() ? gift.get() : original;
+    }
 
-        gift.ifPresent(id -> cir.setReturnValue(RegistryKey.of(RegistryKeys.LOOT_TABLE, id)));
+    private static Optional<Identifier> datadrivenvillagers$giftId(VillagerEntity villager) {
+        return ProfessionBehaviours.of(villager).flatMap(ProfessionDefinition::gift);
     }
 }

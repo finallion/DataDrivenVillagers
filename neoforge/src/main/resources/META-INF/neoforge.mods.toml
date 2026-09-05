@@ -22,16 +22,16 @@ config = "datadrivenvillagers-common.mixins.json"
 modId = "neoforge"
 # "mandatory" was replaced by "type" in the 1.20.5 loader generation.
 type = "required"
-versionRange = "[21.8.0,)"
+versionRange = "[21.1.0,)"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.datadrivenvillagers]]
 modId = "minecraft"
-# Closed on purpose. The code is bound to APIs that changed in 1.21.9, so an open upper bound would
+# Closed on purpose. The code is bound to APIs that changed in 1.21.2, so an open upper bound would
 # only produce crash reports from players on a version this jar was never built for.
 type = "required"
-versionRange = "[1.21.8,1.21.9)"
+versionRange = "[1.21.1,1.21.2)"
 ordering = "NONE"
 side = "BOTH"
 

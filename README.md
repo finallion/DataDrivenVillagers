@@ -6,7 +6,7 @@ trades.
 
 No Java, no fork, no resource pack required.
 
-- Minecraft 1.21.8, Fabric and NeoForge
+- Minecraft 1.21.1, Fabric and NeoForge
 - Fabric additionally needs Fabric API
 
 ## Quick start
@@ -101,7 +101,7 @@ the hat of the **villager type texture underneath** survives, and vanilla's rule
 
     the type's hat is drawn  <=>  hat == none  ||  (hat == partial && that type's own hat != full)
 
-Two things follow that are worth knowing before wondering why nothing changes. In 1.21.8 exactly two
+Two things follow that are worth knowing before wondering why nothing changes. In 1.21.1 exactly two
 villager types bring a hat of their own, `minecraft:desert` and `minecraft:snow`, and both declare it
 `full` - so `partial` behaves like `full` on those two and like `none` on every other type, and is
 never something in between. And a villager type from this mod never brings one, because its texture is

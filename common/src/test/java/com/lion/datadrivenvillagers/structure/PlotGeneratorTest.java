@@ -19,18 +19,36 @@ class PlotGeneratorTest {
 
     private static final Identifier CAMPFIRE = Identifier.of("minecraft", "campfire");
 
+    private static NbtList compounds(NbtCompound owner, String key) {
+        return owner.getList(key, NbtElement.COMPOUND_TYPE);
+    }
+
+    private static NbtList ints(NbtCompound owner, String key) {
+        return owner.getList(key, NbtElement.INT_TYPE);
+    }
+
+    /// -1 for anything missing: an absent key and an index past the end both read as 0, and 0 is a
+    /// value the assertions below expect.
+    private static int intOf(NbtCompound owner, String key) {
+        return owner.contains(key, NbtElement.INT_TYPE) ? owner.getInt(key) : -1;
+    }
+
+    private static int at(NbtList list, int index) {
+        return index < list.size() ? list.getInt(index) : -1;
+    }
+
     private static List<NbtCompound> blocks(NbtCompound plot) {
         List<NbtCompound> result = new ArrayList<>();
-        NbtList list = plot.getListOrEmpty("blocks");
+        NbtList list = compounds(plot, "blocks");
         for (int i = 0; i < list.size(); i++) {
-            result.add(list.getCompoundOrEmpty(i));
+            result.add(list.getCompound(i));
         }
         return result;
     }
 
     private static String nameOf(NbtCompound plot, NbtCompound block) {
-        int state = block.getInt("state", -1);
-        return plot.getListOrEmpty("palette").getCompoundOrEmpty(state).getString("Name", "");
+        int state = intOf(block, "state");
+        return compounds(plot, "palette").getCompound(state).getString("Name");
     }
 
     private static List<NbtCompound> jigsaws(NbtCompound plot) {
@@ -41,15 +59,15 @@ class PlotGeneratorTest {
     void hasTheShapeOfAStructureFile() {
         NbtCompound plot = PlotGenerator.plot(CAMPFIRE, "plains", 4440);
 
-        assertEquals(4440, plot.getInt("DataVersion", 0));
-        assertEquals(3, plot.getListOrEmpty("size").size());
-        assertEquals(5, plot.getListOrEmpty("size").getInt(0, 0));
+        assertEquals(4440, intOf(plot, "DataVersion"));
+        assertEquals(3, ints(plot, "size").size());
+        assertEquals(5, at(ints(plot, "size"), 0));
         assertTrue(plot.contains("entities"));
-        int palette = plot.getListOrEmpty("palette").size();
+        int palette = compounds(plot, "palette").size();
         for (NbtCompound block : blocks(plot)) {
-            int state = block.getInt("state", -1);
+            int state = intOf(block, "state");
             assertTrue(state >= 0 && state < palette, "state index " + state + " points into the palette");
-            assertEquals(3, block.getListOrEmpty("pos").size());
+            assertEquals(3, ints(block, "pos").size());
         }
     }
 
@@ -60,24 +78,24 @@ class PlotGeneratorTest {
         assertEquals(2, jigsaws.size());
 
         NbtCompound entrance = jigsaws.stream()
-                .filter(j -> j.getCompoundOrEmpty("nbt").getString("name", "").equals("minecraft:building_entrance"))
+                .filter(j -> j.getCompound("nbt").getString("name").equals("minecraft:building_entrance"))
                 .findFirst().orElseThrow();
-        NbtCompound entranceNbt = entrance.getCompoundOrEmpty("nbt");
-        assertEquals("minecraft:village/desert/streets", entranceNbt.getString("pool", ""));
-        assertEquals("minecraft:building_entrance", entranceNbt.getString("target", ""));
-        assertEquals("aligned", entranceNbt.getString("joint", ""));
-        assertEquals(0, entrance.getListOrEmpty("pos").getInt(0, -1), "on the west edge");
-        assertEquals(0, entrance.getListOrEmpty("pos").getInt(1, -1), "at street level");
-        assertEquals("west_up", plot.getListOrEmpty("palette")
-                .getCompoundOrEmpty(entrance.getInt("state", -1))
-                .getCompoundOrEmpty("Properties").getString("orientation", ""));
+        NbtCompound entranceNbt = entrance.getCompound("nbt");
+        assertEquals("minecraft:village/desert/streets", entranceNbt.getString("pool"));
+        assertEquals("minecraft:building_entrance", entranceNbt.getString("target"));
+        assertEquals("aligned", entranceNbt.getString("joint"));
+        assertEquals(0, at(ints(entrance, "pos"), 0), "on the west edge");
+        assertEquals(0, at(ints(entrance, "pos"), 1), "at street level");
+        assertEquals("west_up", compounds(plot, "palette")
+                .getCompound(intOf(entrance, "state"))
+                .getCompound("Properties").getString("orientation"));
 
         NbtCompound resident = jigsaws.stream()
-                .filter(j -> j.getCompoundOrEmpty("nbt").getString("pool", "").endsWith("/villagers"))
+                .filter(j -> j.getCompound("nbt").getString("pool").endsWith("/villagers"))
                 .findFirst().orElseThrow();
-        assertEquals("minecraft:village/desert/villagers", resident.getCompoundOrEmpty("nbt").getString("pool", ""));
-        assertEquals("minecraft:bottom", resident.getCompoundOrEmpty("nbt").getString("name", ""));
-        assertEquals(0, resident.getListOrEmpty("pos").getInt(1, -1), "in the floor");
+        assertEquals("minecraft:village/desert/villagers", resident.getCompound("nbt").getString("pool"));
+        assertEquals("minecraft:bottom", resident.getCompound("nbt").getString("name"));
+        assertEquals(0, at(ints(resident, "pos"), 1), "in the floor");
     }
 
     @Test
@@ -86,7 +104,7 @@ class PlotGeneratorTest {
         List<NbtCompound> stations = blocks(plot).stream()
                 .filter(block -> nameOf(plot, block).equals("minecraft:campfire")).toList();
         assertEquals(1, stations.size());
-        assertEquals(1, stations.get(0).getListOrEmpty("pos").getInt(1, -1), "standing on the floor");
+        assertEquals(1, at(ints(stations.get(0), "pos"), 1), "standing on the floor");
     }
 
     @Test
@@ -101,9 +119,9 @@ class PlotGeneratorTest {
     private static List<String> plot(String village) {
         NbtCompound plot = PlotGenerator.plot(CAMPFIRE, village, 4440);
         List<String> names = new ArrayList<>();
-        NbtList palette = plot.getListOrEmpty("palette");
+        NbtList palette = compounds(plot, "palette");
         for (int i = 0; i < palette.size(); i++) {
-            names.add(palette.getCompoundOrEmpty(i).getString("Name", ""));
+            names.add(palette.getCompound(i).getString("Name"));
         }
         return names;
     }

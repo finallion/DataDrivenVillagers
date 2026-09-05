@@ -9,12 +9,14 @@ import net.minecraft.entity.ai.brain.Brain;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.Registries;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.Optional;
 
 /// Applies the profession's day plan, attack damage and max health at the tail of `initBrain`.
 /// Vanilla gives every adult `Schedule.VILLAGER_DEFAULT`; `initBrain` ends with `refreshActivities`,
@@ -33,15 +35,14 @@ public abstract class VillagerEntityMixin {
             return;
         }
 
-        villager.getVillagerData().profession().getKey()
-                .map(RegistryKey::getValue)
+        Optional.ofNullable(Registries.VILLAGER_PROFESSION.getId(villager.getVillagerData().getProfession()))
                 .flatMap(VillagerSchedules::of)
                 .ifPresent(brain::setSchedule);
 
         // The attribute exists on every villager (VillagerAttackMixin); the value is per profession.
         double damage = ProfessionBehaviours.of(villager).flatMap(ProfessionDefinition::attack)
                 .map(Attack::damage).orElse(Attack.DEFAULT_DAMAGE);
-        EntityAttributeInstance attribute = villager.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE);
+        EntityAttributeInstance attribute = villager.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
         if (attribute != null) {
             attribute.setBaseValue(damage);
         }
@@ -50,7 +51,7 @@ public abstract class VillagerEntityMixin {
         // health stays at full health after the change; one above the new maximum is clamped.
         double maxHealth = ProfessionBehaviours.of(villager).flatMap(ProfessionDefinition::health)
                 .orElse(ProfessionDefinition.VANILLA_HEALTH);
-        EntityAttributeInstance health = villager.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+        EntityAttributeInstance health = villager.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
         if (health != null && health.getBaseValue() != maxHealth) {
             boolean full = villager.getHealth() >= villager.getMaxHealth();
             health.setBaseValue(maxHealth);

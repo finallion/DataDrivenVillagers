@@ -8,6 +8,7 @@ import com.lion.datadrivenvillagers.ReloadOutcome;
 import com.lion.datadrivenvillagers.platform.ConfigDirectory;
 import com.lion.datadrivenvillagers.platform.RegistryHelper;
 
+import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
@@ -45,7 +46,7 @@ public final class TypeLoader {
 
     /// Who held a biome before we took it, recorded on the first claim and never overwritten, so a
     /// reload can give the biome back instead of leaving it unmapped.
-    private static final Map<RegistryKey<Biome>, Optional<RegistryKey<VillagerType>>> DISPLACED =
+    private static final Map<RegistryKey<Biome>, Optional<VillagerType>> DISPLACED =
             new HashMap<>();
 
     private static boolean prepared;
@@ -97,9 +98,10 @@ public final class TypeLoader {
         prepare();
         for (TypeDefinition definition : PARSED) {
             try {
-                RegistryHelper.registerVillagerType(definition.id(), new VillagerType());
+                VillagerType type = RegistryHelper.registerVillagerType(definition.id(),
+                        new VillagerType(definition.name()));
                 TypeRegistry.add(definition);
-                claimNamedBiomes(definition);
+                claimNamedBiomes(definition, type);
             } catch (Exception e) {
                 reject(definition.name() + EXTENSION, e);
             }
@@ -112,26 +114,35 @@ public final class TypeLoader {
     }
 
     /// A biome named outright wins over whatever held it, vanilla included.
-    private static void claimNamedBiomes(TypeDefinition definition) {
-        RegistryKey<VillagerType> type = RegistryKey.of(RegistryKeys.VILLAGER_TYPE, definition.id());
+    private static void claimNamedBiomes(TypeDefinition definition, VillagerType type) {
         for (Identifier biome : definition.biomes()) {
             RegistryKey<Biome> key = RegistryKey.of(RegistryKeys.BIOME, biome);
-            RegistryKey<VillagerType> previous = VillagerType.BIOME_TO_TYPE.put(key, type);
+            VillagerType previous = VillagerType.BIOME_TO_TYPE.put(key, type);
             remember(key, previous);
-            if (previous != null && !previous.equals(type)) {
+            if (previous != null && previous != type) {
                 DataDrivenVillagers.LOGGER.info("Villager type {} takes biome {} from {}",
-                        definition.id(), biome, previous.getValue());
+                        definition.id(), biome, idOf(previous));
             }
         }
     }
 
     /// Records the displaced owner once, and only when it is not one of ours: a reload must restore
     /// the original owner, not an earlier claim of our own.
-    private static void remember(RegistryKey<Biome> biome, RegistryKey<VillagerType> previous) {
-        if (previous != null && TypeRegistry.get(previous.getValue()).isPresent()) {
+    private static void remember(RegistryKey<Biome> biome, VillagerType previous) {
+        if (previous != null && ours(previous)) {
             return;
         }
         DISPLACED.putIfAbsent(biome, Optional.ofNullable(previous));
+    }
+
+    /// @return null for a type that is not registered, which no definition can match
+    private static Identifier idOf(VillagerType type) {
+        return Registries.VILLAGER_TYPE.getId(type);
+    }
+
+    private static boolean ours(VillagerType type) {
+        Identifier id = idOf(type);
+        return id != null && TypeRegistry.get(id).isPresent();
     }
 
     /// Called per biome tag while tags are bound, again after every datapack load, so it is idempotent.
@@ -142,7 +153,11 @@ public final class TypeLoader {
                 continue;
             }
 
-            RegistryKey<VillagerType> type = RegistryKey.of(RegistryKeys.VILLAGER_TYPE, definition.id());
+            VillagerType type = Registries.VILLAGER_TYPE.get(definition.id());
+            if (type == null) {
+                continue;
+            }
+
             int claimed = 0;
             for (Identifier biome : biomes) {
                 RegistryKey<Biome> key = RegistryKey.of(RegistryKeys.BIOME, biome);
@@ -196,7 +211,10 @@ public final class TypeLoader {
         }
 
         for (TypeDefinition definition : TypeRegistry.ordered()) {
-            claimNamedBiomes(definition);
+            VillagerType type = Registries.VILLAGER_TYPE.get(definition.id());
+            if (type != null) {
+                claimNamedBiomes(definition, type);
+            }
         }
         claimTags(biomes);
 
@@ -226,9 +244,8 @@ public final class TypeLoader {
     /// this walks the map it edits.
     private static void releaseBiomes() {
         List<RegistryKey<Biome>> ours = new ArrayList<>();
-        for (Map.Entry<RegistryKey<Biome>, RegistryKey<VillagerType>> entry
-                : VillagerType.BIOME_TO_TYPE.entrySet()) {
-            if (TypeRegistry.get(entry.getValue().getValue()).isPresent()) {
+        for (Map.Entry<RegistryKey<Biome>, VillagerType> entry : VillagerType.BIOME_TO_TYPE.entrySet()) {
+            if (ours(entry.getValue())) {
                 ours.add(entry.getKey());
             }
         }
@@ -246,7 +263,7 @@ public final class TypeLoader {
         TypeRegistry.withBiomeTags().forEach(definition -> tags.addAll(definition.biomeTags()));
 
         for (Identifier tagId : tags) {
-            biomes.getOptional(TagKey.of(RegistryKeys.BIOME, tagId)).ifPresent(tag -> {
+            biomes.getEntryList(TagKey.of(RegistryKeys.BIOME, tagId)).ifPresent(tag -> {
                 List<Identifier> members = new ArrayList<>();
                 for (RegistryEntry<Biome> entry : tag) {
                     entry.getKey().ifPresent(key -> members.add(key.getValue()));

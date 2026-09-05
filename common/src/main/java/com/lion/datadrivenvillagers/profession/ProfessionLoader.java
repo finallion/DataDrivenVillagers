@@ -358,9 +358,7 @@ public final class ProfessionLoader {
 
     /// @return null for an unregistered profession, which matches nothing
     private static Identifier professionOf(VillagerEntity villager) {
-        return villager.getVillagerData().profession().getKey()
-                .map(RegistryKey::getValue)
-                .orElse(null);
+        return Registries.VILLAGER_PROFESSION.getId(villager.getVillagerData().getProfession());
     }
 
     private static ReloadOutcome apply(String file, ProfessionDefinition old, ProfessionDefinition next) {
@@ -464,7 +462,7 @@ public final class ProfessionLoader {
 
     /// Clears only states that still point at this job site.
     private static int releaseBlock(Identifier blockId, RegistryEntry<PointOfInterestType> poi) {
-        Optional<Block> block = Registries.BLOCK.getOptionalValue(blockId);
+        Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
         if (block.isEmpty()) {
             return 0;
         }
@@ -479,7 +477,7 @@ public final class ProfessionLoader {
     }
 
     private static boolean claimBlock(Identifier blockId, RegistryEntry<PointOfInterestType> poi) {
-        Optional<Block> block = Registries.BLOCK.getOptionalValue(blockId);
+        Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
         if (block.isEmpty()) {
             return false;
         }
@@ -507,7 +505,7 @@ public final class ProfessionLoader {
         if (!definition.isOverride()) {
             return ProfessionRegistry.poiEntry(definition.target());
         }
-        return Registries.VILLAGER_PROFESSION.getOptionalValue(definition.target())
+        return Registries.VILLAGER_PROFESSION.getOrEmpty(definition.target())
                 .flatMap(ProfessionLoader::jobSiteOf);
     }
 
@@ -544,7 +542,7 @@ public final class ProfessionLoader {
     /// vanilla's predicate asks `holder.is(poiKey)`.
     private static void applyOverride(ProfessionDefinition definition) {
         Identifier target = definition.target();
-        VillagerProfession profession = Registries.VILLAGER_PROFESSION.getOptionalValue(target)
+        VillagerProfession profession = Registries.VILLAGER_PROFESSION.getOrEmpty(target)
                 .orElseThrow(() -> new DefinitionParseException(
                         "\"overrides\" names " + target + ", which is not a registered profession"));
 
@@ -649,7 +647,7 @@ public final class ProfessionLoader {
         int added = 0;
 
         for (Identifier blockId : definition.addWorkstations()) {
-            Optional<Block> block = Registries.BLOCK.getOptionalValue(blockId);
+            Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
             if (block.isEmpty()) {
                 missing.add(blockId);
                 continue;
@@ -722,7 +720,7 @@ public final class ProfessionLoader {
         List<String> taken = new ArrayList<>();
 
         for (Identifier blockId : definition.workstations()) {
-            Optional<Block> block = Registries.BLOCK.getOptionalValue(blockId);
+            Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
             if (block.isEmpty()) {
                 missing.add(blockId);
                 continue;
@@ -781,7 +779,7 @@ public final class ProfessionLoader {
         int usable = 0;
 
         for (Identifier blockId : definition.workstations()) {
-            Optional<Block> block = Registries.BLOCK.getOptionalValue(blockId);
+            Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
             if (block.isEmpty()) {
                 missing.add(blockId);
                 continue;
@@ -813,7 +811,7 @@ public final class ProfessionLoader {
     private static VillagerProfession createProfession(ProfessionDefinition definition, PointOfInterestType poi) {
         Predicate<RegistryEntry<PointOfInterestType>> matches = entry -> entry.value() == poi;
         return new VillagerProfession(
-                displayName(definition),
+                definition.name(),
                 matches,
                 matches,
                 items(definition),
@@ -821,19 +819,22 @@ public final class ProfessionLoader {
                 workSound(definition));
     }
 
-    /// Vanilla builds the key as `entity.minecraft.villager.<path>` regardless of namespace;
-    /// display_name is the fallback when no language file provides it.
-    private static Text displayName(ProfessionDefinition definition) {
-        String key = "entity.minecraft.villager." + definition.name();
-        return definition.displayName()
-                .map(fallback -> (Text) Text.translatableWithFallback(key, fallback))
-                .orElseGet(() -> Text.translatable(key));
+    /// The profession carries no text of its own; vanilla derives the key from the registry id as
+    /// `entity.minecraft.villager.<path>`, regardless of namespace. `display_name` is the fallback
+    /// when no language file provides that key, and is served through the name hook.
+    ///
+    /// @return empty for a profession without `display_name`, which needs no fallback
+    public static Optional<Text> displayName(Identifier profession) {
+        return ProfessionRegistry.get(profession)
+                .flatMap(ProfessionDefinition::displayName)
+                .map(fallback -> Text.translatableWithFallback(
+                        "entity.minecraft.villager." + profession.getPath(), fallback));
     }
 
     private static ImmutableSet<Item> items(ProfessionDefinition definition) {
         ImmutableSet.Builder<Item> builder = ImmutableSet.builder();
         for (Identifier id : definition.gatherable()) {
-            Registries.ITEM.getOptionalValue(id).ifPresentOrElse(builder::add,
+            Registries.ITEM.getOrEmpty(id).ifPresentOrElse(builder::add,
                     () -> DataDrivenVillagers.LOGGER.warn("Profession {} ignores unknown gatherable item {}",
                             definition.id(), id));
         }
@@ -843,7 +844,7 @@ public final class ProfessionLoader {
     private static ImmutableSet<Block> blocks(ProfessionDefinition definition) {
         ImmutableSet.Builder<Block> builder = ImmutableSet.builder();
         for (Identifier id : definition.secondarySites()) {
-            Registries.BLOCK.getOptionalValue(id).ifPresentOrElse(builder::add,
+            Registries.BLOCK.getOrEmpty(id).ifPresentOrElse(builder::add,
                     () -> DataDrivenVillagers.LOGGER.warn("Profession {} ignores unknown secondary job site {}",
                             definition.id(), id));
         }
@@ -853,7 +854,7 @@ public final class ProfessionLoader {
     /// Null is a legal work sound; vanilla nitwits have none.
     private static SoundEvent workSound(ProfessionDefinition definition) {
         return definition.workSound()
-                .map(id -> Registries.SOUND_EVENT.getOptionalValue(id).orElseGet(() -> {
+                .map(id -> Registries.SOUND_EVENT.getOrEmpty(id).orElseGet(() -> {
                     DataDrivenVillagers.LOGGER.warn("Profession {} ignores unknown work sound {}",
                             definition.id(), id);
                     return null;

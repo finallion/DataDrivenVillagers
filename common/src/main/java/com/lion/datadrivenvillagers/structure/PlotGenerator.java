@@ -60,7 +60,7 @@ public final class PlotGenerator {
     /// @param workstation the block under the roof, written with its default state
     /// @param village     one of the five vanilla village types; anything else draws in plains materials
     public static NbtCompound plot(Identifier workstation, String village) {
-        return plot(workstation, village, SharedConstants.getGameVersion().dataVersion().id());
+        return plot(workstation, village, SharedConstants.getGameVersion().getSaveVersion().getId());
     }
 
     /// @param dataVersion the game's data version, passed in so tests need no {@code SharedConstants}

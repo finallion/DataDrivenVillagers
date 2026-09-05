@@ -74,7 +74,7 @@ public final class StructureLoader {
         List<StructureDefinition> fresh = new ArrayList<>();
         parseInto(fresh);
 
-        Registry<StructurePool> pools = server.getRegistryManager().getOrThrow(RegistryKeys.TEMPLATE_POOL);
+        Registry<StructurePool> pools = server.getRegistryManager().get(RegistryKeys.TEMPLATE_POOL);
         takeBack(pools);
 
         Set<Identifier> present = new LinkedHashSet<>();
@@ -89,7 +89,7 @@ public final class StructureLoader {
         }
 
         Registry<StructureProcessorList> processors =
-                server.getRegistryManager().getOrThrow(RegistryKeys.PROCESSOR_LIST);
+                server.getRegistryManager().get(RegistryKeys.PROCESSOR_LIST);
         int wired = 0;
         for (StructureDefinition definition : StructureRegistry.ordered()) {
             wired += inject(definition, pools, processors);
@@ -137,7 +137,7 @@ public final class StructureLoader {
         List<Identifier> missing = new ArrayList<>();
         int wired = 0;
         for (Identifier poolId : definition.targetPools()) {
-            StructurePool pool = pools.getOptionalValue(poolId).orElse(null);
+            StructurePool pool = pools.getOrEmpty(poolId).orElse(null);
             if (pool == null) {
                 missing.add(poolId);
                 continue;
@@ -192,7 +192,7 @@ public final class StructureLoader {
 
     private static void takeBack(Registry<StructurePool> pools) {
         for (Map.Entry<Identifier, List<StructurePoolElement>> entry : INJECTED.entrySet()) {
-            pools.getOptionalValue(entry.getKey()).ifPresent(pool ->
+            pools.getOrEmpty(entry.getKey()).ifPresent(pool ->
                     pool.elements.removeIf(element -> entry.getValue().contains(element)));
         }
         INJECTED.clear();

@@ -170,7 +170,7 @@ public final class Scaffold {
         if (!definition.addWorkstations().isEmpty()) {
             return Optional.of(definition.addWorkstations().get(0));
         }
-        return Registries.VILLAGER_PROFESSION.getOptionalValue(definition.target())
+        return Registries.VILLAGER_PROFESSION.getOrEmpty(definition.target())
                 .flatMap(ProfessionLoader::jobSiteOf)
                 .flatMap(poi -> poi.value().blockStates().stream().findFirst())
                 .map(state -> Registries.BLOCK.getId(state.getBlock()));
@@ -209,7 +209,7 @@ public final class Scaffold {
 
     /// The two pack format constants next to this are deprecated; the version object is not.
     private static int packVersion(ResourceType type) {
-        return SharedConstants.getGameVersion().packVersion(type);
+        return SharedConstants.getGameVersion().getResourceVersion(type);
     }
 
     private static String packMeta(int format, String description) {

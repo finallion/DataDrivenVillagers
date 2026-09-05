@@ -128,15 +128,15 @@ final class VillagerWhy {
         Report report = new Report();
         ServerWorld world = (ServerWorld) zombie.getWorld();
         BlockPos here = zombie.getBlockPos();
-        RegistryEntry<VillagerProfession> profession = zombie.getVillagerData().profession();
+        VillagerProfession profession = zombie.getVillagerData().getProfession();
         Optional<ProfessionDefinition> definition = ProfessionBehaviours.of(profession);
-        Identifier typeId = zombie.getVillagerData().type().getKey().map(RegistryKey::getValue).orElse(null);
+        Identifier typeId = Registries.VILLAGER_TYPE.getId(zombie.getVillagerData().getType());
 
         report.header("zombie villager " + zombie.getUuid().toString().substring(0, 8) + " at " + here.toShortString(),
-                (zombie.isBaby() ? "baby, " : "") + typeId + ", level " + zombie.getVillagerData().level()
-                        + ", " + zombie.getExperience() + " xp, " + (int) zombie.getHealth() + "/" + (int) zombie.getMaxHealth() + " health");
+                (zombie.isBaby() ? "baby, " : "") + typeId + ", level " + zombie.getVillagerData().getLevel()
+                        + ", " + zombie.getXp() + " xp, " + (int) zombie.getHealth() + "/" + (int) zombie.getMaxHealth() + " health");
 
-        if (profession.matchesKey(VillagerProfession.NONE)) {
+        if (profession == VillagerProfession.NONE) {
             report.skipped("profession", "none, it had no job when it was bitten");
         } else {
             report.ok("profession", idOf(profession) + definition.map(d -> "  from " + d.name() + ".json").orElse("  vanilla")
@@ -159,21 +159,21 @@ final class VillagerWhy {
         Brain<VillagerEntity> brain = villager.getBrain();
         BlockPos here = villager.getBlockPos();
 
-        RegistryEntry<VillagerProfession> profession = villager.getVillagerData().profession();
+        VillagerProfession profession = villager.getVillagerData().getProfession();
         Identifier professionId = idOf(profession);
         Optional<ProfessionDefinition> definition = ProfessionBehaviours.of(profession);
-        Identifier typeId = villager.getVillagerData().type().getKey().map(RegistryKey::getValue).orElse(null);
+        Identifier typeId = Registries.VILLAGER_TYPE.getId(villager.getVillagerData().getType());
 
         report.header("villager " + villager.getUuid().toString().substring(0, 8) + " at " + here.toShortString(),
-                (villager.isBaby() ? "baby, " : "") + typeId + ", level " + villager.getVillagerData().level()
+                (villager.isBaby() ? "baby, " : "") + typeId + ", level " + villager.getVillagerData().getLevel()
                         + ", " + villager.getExperience() + " xp, " + (int) villager.getHealth() + "/" + (int) villager.getMaxHealth() + " health");
 
         // Vanilla professions without a file of ours are reported too.
         if (villager.isBaby()) {
             report.skipped("profession", "a baby has none, and plays until it grows up");
-        } else if (profession.matchesKey(VillagerProfession.NONE)) {
+        } else if (profession == VillagerProfession.NONE) {
             report.warn("profession", "none  looking for a job site, or none within reach");
-        } else if (profession.matchesKey(VillagerProfession.NITWIT)) {
+        } else if (profession == VillagerProfession.NITWIT) {
             report.warn("profession", "nitwit  never takes a job, by vanilla's rule");
         } else {
             report.ok("profession", professionId + definition.map(d -> "  from " + d.name() + ".json"
@@ -228,9 +228,9 @@ final class VillagerWhy {
             return;
         }
         Identifier biomeId = key.get().getValue();
-        RegistryKey<VillagerType> holder = VillagerType.BIOME_TO_TYPE.get(key.get());
+        VillagerType holder = VillagerType.BIOME_TO_TYPE.get(key.get());
         String how;
-        if (holder != null && holder.getValue().equals(typeId)) {
+        if (holder != null && Registries.VILLAGER_TYPE.getId(holder).equals(typeId)) {
             if (d.biomes().contains(biomeId)) {
                 how = "held by this type, named outright in the file";
             } else {
@@ -239,7 +239,7 @@ final class VillagerWhy {
                         .map(tag -> "#" + tag).findFirst().orElse("a tag");
             }
         } else {
-            how = "held by " + (holder == null ? "no type" : holder.getValue())
+            how = "held by " + (holder == null ? "no type" : Registries.VILLAGER_TYPE.getId(holder))
                     + ", so it was born elsewhere or given the type by hand";
         }
         report.notes(List.of(new Note(true, "biome here " + biomeId + "  " + how)));
@@ -253,14 +253,13 @@ final class VillagerWhy {
     ///    A summoned `level:2` villager with only novice trades gets nothing, and re-entering the
     ///    world rebuilds the same nothing. Summon with level 1 plus `Xp:1` (xp 0 loses the job).
     private static void trades(Report report, VillagerEntity villager,
-                               RegistryEntry<VillagerProfession> profession) {
-        if (villager.isBaby() || profession.matchesKey(VillagerProfession.NONE)
-                || profession.matchesKey(VillagerProfession.NITWIT)) {
+                               VillagerProfession profession) {
+        if (villager.isBaby() || profession == VillagerProfession.NONE
+                || profession == VillagerProfession.NITWIT) {
             return;
         }
-        int level = villager.getVillagerData().level();
-        Int2ObjectMap<TradeOffers.Factory[]> map = profession.getKey()
-                .map(TradeOffers.PROFESSION_TO_LEVELED_TRADE::get).orElse(null);
+        int level = villager.getVillagerData().getLevel();
+        Int2ObjectMap<TradeOffers.Factory[]> map = TradeOffers.PROFESSION_TO_LEVELED_TRADE.get(profession);
         int total = map == null ? 0
                 : map.values().stream().mapToInt(factories -> factories.length).sum();
         TradeOffers.Factory[] tier = map == null ? null : map.get(level);
@@ -426,8 +425,8 @@ final class VillagerWhy {
         int time = (int) (villager.getWorld().getTimeOfDay() % ScheduleParser.DAY_LENGTH);
         Activity planned = brain.getSchedule().getActivityForTime(time);
         String doing = current.map(VillagerWhy::activityName).orElse("nothing but core");
-        boolean jobless = villager.getVillagerData().profession().matchesKey(VillagerProfession.NONE)
-                || villager.getVillagerData().profession().matchesKey(VillagerProfession.NITWIT);
+        boolean jobless = villager.getVillagerData().getProfession() == VillagerProfession.NONE
+                || villager.getVillagerData().getProfession() == VillagerProfession.NITWIT;
         if (current.isPresent() && current.get() != planned && jobless && activityName(planned).equals("work")) {
             // Vanilla idles a jobless villager during "work".
             report.extra("doing", Text.literal(doing + "  the plan says work, but there is no job to do").formatted(Formatting.GRAY));
@@ -501,7 +500,7 @@ final class VillagerWhy {
         if (attack.isEmpty()) {
             return;
         }
-        double damage = villager.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
+        double damage = villager.getAttributeValue(EntityAttributes.GENERIC_ATTACK_DAMAGE);
         boolean asSet = damage == attack.get().damage();
         String targets = attack.get().targets().stream().map(EntityRange::describe).collect(Collectors.joining(", "));
         report.extra("attack", Text.literal(damage + " damage every " + attack.get().cooldown() + " ticks, goes after "
@@ -513,7 +512,7 @@ final class VillagerWhy {
     /// also needs room in the inventory and no pickup cooldown.
     private static void gathers(Report report, ServerWorld world, VillagerEntity villager,
                                 Brain<VillagerEntity> brain, Optional<ProfessionDefinition> definition) {
-        Set<Item> inGame = villager.getVillagerData().profession().value().gatherableItems();
+        Set<Item> inGame = villager.getVillagerData().getProfession().gatherableItems();
         List<Identifier> inFile = definition.map(ProfessionDefinition::gatherable).orElse(List.of());
         if (inGame.isEmpty() && inFile.isEmpty()) {
             return;
@@ -642,13 +641,14 @@ final class VillagerWhy {
         return Registries.ACTIVITY.getId(activity) == null ? activity.toString() : Registries.ACTIVITY.getId(activity).getPath();
     }
 
-    private static Identifier idOf(RegistryEntry<VillagerProfession> profession) {
-        return profession.getKey().map(RegistryKey::getValue).orElse(Identifier.ofVanilla("unknown"));
+    private static Identifier idOf(VillagerProfession profession) {
+        Identifier id = Registries.VILLAGER_PROFESSION.getId(profession);
+        return id == null ? Identifier.ofVanilla("unknown") : id;
     }
 
     /// The blocks the registered job site accepts, as the game holds them now.
-    private static void workstation(Report report, RegistryEntry<VillagerProfession> profession) {
-        String blocks = ProfessionLoader.jobSiteOf(profession.value())
+    private static void workstation(Report report, VillagerProfession profession) {
+        String blocks = ProfessionLoader.jobSiteOf(profession)
                 .map(poi -> poi.value().blockStates().stream()
                         .map(state -> Registries.BLOCK.getId(state.getBlock()).toString())
                         .distinct().sorted().collect(Collectors.joining(", ")))
@@ -661,11 +661,11 @@ final class VillagerWhy {
     }
 
     private static Optional<RegistryEntry<PointOfInterestType>> ownJobSite(VillagerEntity villager) {
-        RegistryEntry<VillagerProfession> profession = villager.getVillagerData().profession();
-        if (profession.matchesKey(VillagerProfession.NONE) || profession.matchesKey(VillagerProfession.NITWIT)) {
+        VillagerProfession profession = villager.getVillagerData().getProfession();
+        if (profession == VillagerProfession.NONE || profession == VillagerProfession.NITWIT) {
             return Optional.empty();
         }
-        return ProfessionLoader.jobSiteOf(profession.value());
+        return ProfessionLoader.jobSiteOf(profession);
     }
 
     private static boolean sameType(PointOfInterest poi, RegistryEntry<PointOfInterestType> site) {

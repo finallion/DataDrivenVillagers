@@ -136,7 +136,7 @@ public final class RuntimeTextures {
             TextureManager textures = MinecraftClient.getInstance().getTextureManager();
             // Registering over an existing id would leak the old image on the GPU after every reload.
             textures.destroyTexture(id);
-            textures.registerTexture(id, new NativeImageBackedTexture(id::toString, image));
+            textures.registerTexture(id, new NativeImageBackedTexture(image));
             REGISTERED.add(id);
             return true;
         } catch (IOException e) {

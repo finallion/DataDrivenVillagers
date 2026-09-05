@@ -13,6 +13,7 @@
     "MerchantEntityAccessor",
     "VillagerAttackMixin",
     "VillagerEntityMixin",
+    "VillagerNameMixin",
     "VillagerHostilesSensorMixin",
     "VillagerTaskListProviderMixin",
     "WorkStationCompetitionTaskMixin",

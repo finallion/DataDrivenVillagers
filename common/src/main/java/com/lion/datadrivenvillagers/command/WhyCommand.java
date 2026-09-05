@@ -26,6 +26,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.IdentifierArgumentType;
 import net.minecraft.loot.LootTable;
@@ -39,13 +40,13 @@ import net.minecraft.registry.tag.PointOfInterestTypeTags;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.structure.StructurePlacementData;
 import net.minecraft.structure.StructureTemplate;
 import net.minecraft.structure.pool.SinglePoolElement;
 import net.minecraft.structure.pool.StructurePool;
 import net.minecraft.structure.pool.StructurePoolElement;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
-import net.minecraft.util.BlockRotation;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -150,7 +151,7 @@ public final class WhyCommand {
                 + ", from " + definition.name() + ".json");
         report.ok("file loaded", definition.name() + ".json");
 
-        Optional<VillagerProfession> registered = Registries.VILLAGER_PROFESSION.getOptionalValue(target);
+        Optional<VillagerProfession> registered = Registries.VILLAGER_PROFESSION.getOrEmpty(target);
         if (registered.isEmpty()) {
             report.broken("profession registered", target + " is not in the registry",
                     definition.isOverride()
@@ -211,7 +212,7 @@ public final class WhyCommand {
         int leading = 0;
 
         for (Identifier blockId : declared) {
-            Optional<Block> block = Registries.BLOCK.getOptionalValue(blockId);
+            Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
             if (block.isEmpty()) {
                 notes.add(new Note(false, blockId + "  no such block"));
                 continue;
@@ -333,8 +334,7 @@ public final class WhyCommand {
         return definition.name() + ".json changes how " + target + " " + and(does) + ".";
     }
 
-    /// `hat` decides whether the hat of the type texture underneath stays visible; vanilla's rule is
-    /// `typeHatVisible = profession == NONE || (profession == PARTIAL && type != FULL)`. In 1.21.8 only
+    /// `typeHatVisible = profession == NONE || (profession == PARTIAL && type != FULL)`. In 1.21.1 only
     /// `minecraft:desert` and `minecraft:snow` declare a hat (both `full`), and a runtime type texture
     /// of ours has no `.png.mcmeta` and therefore none.
     private static void hat(Report report, ProfessionDefinition definition) {
@@ -554,7 +554,7 @@ public final class WhyCommand {
         report.header(definition.id(), "villager type, from " + definition.name() + ".json");
         report.ok("file loaded", definition.name() + ".json");
 
-        if (Registries.VILLAGER_TYPE.getOptionalValue(definition.id()).isEmpty()) {
+        if (Registries.VILLAGER_TYPE.getOrEmpty(definition.id()).isEmpty()) {
             report.broken("type registered", definition.id() + " is not in the registry",
                     "registration failed after the file was read, /ddv errors has the reason.");
             report.skipped("named biomes claimed", "");
@@ -565,7 +565,7 @@ public final class WhyCommand {
         report.ok("type registered", definition.id().toString());
 
         RegistryKey<VillagerType> key = RegistryKey.of(RegistryKeys.VILLAGER_TYPE, definition.id());
-        Registry<Biome> biomes = source.getServer().getRegistryManager().getOrThrow(RegistryKeys.BIOME);
+        Registry<Biome> biomes = source.getServer().getRegistryManager().get(RegistryKeys.BIOME);
         namedBiomes(report, definition, key, biomes);
         biomeTags(report, definition, key, biomes);
 
@@ -599,14 +599,13 @@ public final class WhyCommand {
                 continue;
             }
 
-            RegistryKey<VillagerType> holder =
-                    VillagerType.BIOME_TO_TYPE.get(RegistryKey.of(RegistryKeys.BIOME, biome));
-            if (key.equals(holder)) {
+            Identifier holder = holderOf(RegistryKey.of(RegistryKeys.BIOME, biome));
+            if (key.getValue().equals(holder)) {
                 claimed++;
                 notes.add(new Note(true, biome + "  held"));
             } else {
                 notes.add(new Note(false, biome + "  held by "
-                        + (holder == null ? "nothing" : holder.getValue())));
+                        + (holder == null ? "nothing" : holder)));
             }
         }
 
@@ -618,6 +617,12 @@ public final class WhyCommand {
             report.ok("named biomes claimed", claimed + " of " + definition.biomes().size());
         }
         report.notes(notes);
+    }
+
+    /// @return the id of the villager type holding this biome, null when nothing holds it
+    private static Identifier holderOf(RegistryKey<Biome> biome) {
+        VillagerType holder = VillagerType.BIOME_TO_TYPE.get(biome);
+        return holder == null ? null : Registries.VILLAGER_TYPE.getId(holder);
     }
 
     /// A tag claims only biomes nothing holds yet. A member still free means the tag hook did not run;
@@ -634,7 +639,7 @@ public final class WhyCommand {
 
         for (Identifier tagId : definition.biomeTags()) {
             Optional<RegistryEntryList.Named<Biome>> tag =
-                    biomes.getOptional(TagKey.of(RegistryKeys.BIOME, tagId));
+                    biomes.getEntryList(TagKey.of(RegistryKeys.BIOME, tagId));
             if (tag.isEmpty()) {
                 notes.add(new Note(false, "#" + tagId + "  no such biome tag"));
                 unresolved = true;
@@ -650,8 +655,8 @@ public final class WhyCommand {
                 if (biome.isEmpty()) {
                     continue;
                 }
-                RegistryKey<VillagerType> holder = VillagerType.BIOME_TO_TYPE.get(biome.get());
-                if (key.equals(holder)) {
+                Identifier holder = holderOf(biome.get());
+                if (key.getValue().equals(holder)) {
                     held++;
                 } else if (holder == null) {
                     free++;
@@ -703,7 +708,8 @@ public final class WhyCommand {
         report.ok("nbt is readable",
                 building + ", " + size.getX() + "x" + size.getY() + "x" + size.getZ());
 
-        int jigsaws = template.get().getJigsawInfos(BlockPos.ORIGIN, BlockRotation.NONE).size();
+        int jigsaws = template.get()
+                .getInfosForBlock(BlockPos.ORIGIN, new StructurePlacementData(), Blocks.JIGSAW).size();
         if (jigsaws == 0) {
             report.broken("has a jigsaw block", "none in the structure",
                     "a village piece connects through a jigsaw block, and without one the generator "
@@ -753,12 +759,12 @@ public final class WhyCommand {
     /// Reads the world's live pools; they are rebuilt per world.
     private static void pools(Report report, ServerCommandSource source, StructureDefinition definition) {
         Registry<StructurePool> registry =
-                source.getServer().getRegistryManager().getOrThrow(RegistryKeys.TEMPLATE_POOL);
+                source.getServer().getRegistryManager().get(RegistryKeys.TEMPLATE_POOL);
 
         List<Note> notes = new ArrayList<>();
         int found = 0;
         for (Identifier poolId : definition.targetPools()) {
-            StructurePool pool = registry.getOptionalValue(poolId).orElse(null);
+            StructurePool pool = registry.getOrEmpty(poolId).orElse(null);
             if (pool == null) {
                 notes.add(new Note(false, poolId + "  no such pool in this world"));
                 continue;
@@ -789,12 +795,9 @@ public final class WhyCommand {
             if (!(element instanceof SinglePoolElement single)) {
                 continue;
             }
-            try {
-                if (id.equals(single.getIdOrThrow())) {
-                    copies++;
-                }
-            } catch (RuntimeException e) {
-                // An element built from a template instead of an id (another mod's) has no id.
+            // An element built from a template instead of an id (another mod's) has no id.
+            if (single.location.left().filter(id::equals).isPresent()) {
+                copies++;
             }
         }
         return copies;
