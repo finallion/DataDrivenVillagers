@@ -1,0 +1,5 @@
+accessWidener v2 named
+accessible field net/minecraft/world/poi/PointOfInterestTypes POI_STATES_TO_TYPE Ljava/util/Map;
+accessible method net/minecraft/world/poi/PointOfInterestTypes getStatesOfBlock (Lnet/minecraft/block/Block;)Ljava/util/Set;
+accessible field net/minecraft/structure/pool/StructurePool elements Lit/unimi/dsi/fastutil/objects/ObjectArrayList;
+accessible field net/minecraft/village/VillagerType BIOME_TO_TYPE Ljava/util/Map;

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "datadrivenvillagers",
+  "version": "${version}",
+  "name": "DataDrivenVillagers",
+  "description": "Define villager professions in JSON: bind one to a workstation block, give it a texture, and let VillagerTradingPlus handle the trades.",
+  "authors": [
+    "Finallion"
+  ],
+  "contact": {},
+
+  "license": "CC0-1.0",
+
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.lion.datadrivenvillagers.fabric.DataDrivenVillagersFabric"
+    ],
+    "client": [
+      "com.lion.datadrivenvillagers.fabric.DataDrivenVillagersFabricClient"
+    ]
+  },
+  "mixins": [
+    "datadrivenvillagers-common.mixins.json"
+  ],
+
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": ">=1.21.8 <1.21.9",
+    "java": ">=21"
+  },
+  "recommends": {
+    "villagertradingplus": ">=1.0.0"
+  }
+}

@@ -1,0 +1,123 @@
+plugins {
+	id "architectury-plugin" version "3.4-SNAPSHOT"
+	id "dev.architectury.loom" version "1.11-SNAPSHOT" apply false
+	id "me.modmuss50.mod-publish-plugin" version "1.1.0"
+}
+
+architectury {
+	minecraft = rootProject.minecraft_version
+}
+
+subprojects {
+	apply plugin: "dev.architectury.loom"
+
+	loom {
+		silentMojangMappingsLicense()
+	}
+
+	dependencies {
+		minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+		mappings loom.layered {
+			mappings "net.fabricmc:yarn:${rootProject.yarn_mappings}"
+			mappings "dev.architectury:yarn-mappings-patch-neoforge:${rootProject.yarn_mappings_patch_neoforge_version}"
+		}
+	}
+}
+
+allprojects {
+	apply plugin: "java"
+	apply plugin: "architectury-plugin"
+	apply plugin: "maven-publish"
+
+	base {
+		archivesName = rootProject.archives_base_name
+	}
+	version = "${rootProject.mod_version}+mc${rootProject.minecraft_version}"
+	group = rootProject.maven_group
+
+	repositories {
+		mavenCentral()
+		maven { url 'https://maven.neoforged.net/releases' }
+		maven { url 'https://jitpack.io' }
+	}
+
+	tasks.withType(JavaCompile) {
+		options.encoding = "UTF-8"
+		options.release = 21
+	}
+
+	java {
+		withSourcesJar()
+	}
+}
+
+
+publishMods {
+	dryRun = providers.environmentVariable("PUBLISH_LIVE").getOrElse("false") != "true"
+
+	version = project.version
+	type = STABLE
+	displayName = "DataDrivenVillagers ${rootProject.mod_version} for MC ${rootProject.minecraft_version}"
+	changelog = providers.environmentVariable("CHANGELOG")
+			.getOrElse("See the GitHub release for the changelog.")
+
+	def token = { String env, String property ->
+		providers.environmentVariable(env).orElse(providers.gradleProperty(property)).orElse("")
+	}
+
+	def cfOptions = curseforgeOptions {
+		accessToken = token("CURSEFORGE_TOKEN", "curseforgeToken")
+		projectId = providers.gradleProperty("ddvCurseforgeId").getOrElse("000000")
+		minecraftVersions.add(rootProject.minecraft_version)
+		// CurseForge rejects uploads that declare neither.
+		clientRequired = true
+		serverRequired = true
+	}
+
+	def mrOptions = modrinthOptions {
+		accessToken = token("MODRINTH_TOKEN", "modrinthToken")
+		projectId = providers.gradleProperty("ddvModrinthId").getOrElse("000000")
+		minecraftVersions.add(rootProject.minecraft_version)
+	}
+
+	curseforge("curseforgeFabric") {
+		from cfOptions
+		file project(":fabric")
+		modLoaders.add("fabric")
+		requires { slug = "fabric-api" }
+	}
+
+	curseforge("curseforgeNeoForge") {
+		from cfOptions
+		file project(":neoforge")
+		modLoaders.add("neoforge")
+	}
+
+	// One Modrinth version per loader, so the loader has to be part of the version number as well.
+	modrinth("modrinthFabric") {
+		from mrOptions
+		file project(":fabric")
+		version = "${project.version}-fabric"
+		displayName = "DataDrivenVillagers ${rootProject.mod_version} for MC ${rootProject.minecraft_version} (Fabric)"
+		modLoaders.add("fabric")
+		requires { slug = "fabric-api" }
+	}
+
+	modrinth("modrinthNeoForge") {
+		from mrOptions
+		file project(":neoforge")
+		version = "${project.version}-neoforge"
+		displayName = "DataDrivenVillagers ${rootProject.mod_version} for MC ${rootProject.minecraft_version} (NeoForge)"
+		modLoaders.add("neoforge")
+	}
+
+	github {
+		accessToken = providers.environmentVariable("GITHUB_TOKEN").getOrElse("")
+		repository = "finallion/DataDrivenVillagers"
+		commitish = providers.environmentVariable("GITHUB_SHA").getOrElse(rootProject.minecraft_version)
+		file project(":fabric")
+		additionalFiles.from(project(":neoforge").tasks.named("remapJar").flatMap { it.archiveFile })
+		modLoaders.add("fabric")
+		modLoaders.add("neoforge")
+	}
+}

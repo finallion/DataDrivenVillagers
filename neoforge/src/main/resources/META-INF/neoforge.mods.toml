@@ -1,0 +1,45 @@
+modLoader = "javafml"
+# NeoForge's javafml, not Forge's: it declares [3,] for itself, so [3,) accepts it and anything newer.
+# The old Forge numbering ([37,)) matches nothing here and refuses to load.
+loaderVersion = "[3,)"
+license = "CC0-1.0"
+
+[[mods]]
+modId = "datadrivenvillagers"
+version = "${version}"
+displayName = "DataDrivenVillagers"
+authors = "Lion"
+description = '''
+Define villager professions in JSON: bind one to a workstation block, give it a texture, and let VillagerTradingPlus handle the trades.
+'''
+
+# NeoForge reads mixin configs from here and nowhere else. Fabric picks them up from fabric.mod.json,
+# so without this block not a single mixin applies, silently: no job sites, no textures, no hats.
+[[mixins]]
+config = "datadrivenvillagers-common.mixins.json"
+
+[[dependencies.datadrivenvillagers]]
+modId = "neoforge"
+# "mandatory" was replaced by "type" in the 1.20.5 loader generation.
+type = "required"
+versionRange = "[21.8.0,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.datadrivenvillagers]]
+modId = "minecraft"
+# Closed on purpose. The code is bound to APIs that changed in 1.21.9, so an open upper bound would
+# only produce crash reports from players on a version this jar was never built for.
+type = "required"
+versionRange = "[1.21.8,1.21.9)"
+ordering = "NONE"
+side = "BOTH"
+
+# Professions work without it, they just have no trades. Load after it so a trade file that names one
+# of our professions finds it registered.
+[[dependencies.datadrivenvillagers]]
+modId = "villagertradingplus"
+type = "optional"
+versionRange = "[1.0.0,)"
+ordering = "AFTER"
+side = "BOTH"

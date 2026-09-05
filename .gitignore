@@ -1,0 +1,21 @@
+.gradle/
+build/
+*/build/
+.architectury-transformer/
+run/
+*/run/
+logs/
+*.log
+
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# Working files, not part of the mod.
+docs/
+run-server/
