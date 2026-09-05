@@ -44,8 +44,8 @@ final class Holders {
     private static void count(Brain<VillagerEntity> brain, MemoryModuleType<GlobalPos> memory,
                               ServerWorld world, Map<BlockPos, Integer> into) {
         brain.getOptionalMemory(memory)
-                .filter(pos -> pos.dimension().equals(world.getRegistryKey()))
-                .ifPresent(pos -> into.merge(pos.pos(), 1, Integer::sum));
+                .filter(pos -> pos.getDimension().equals(world.getRegistryKey()))
+                .ifPresent(pos -> into.merge(pos.getPos(), 1, Integer::sum));
     }
 
     /// "1/3 free, 1 working there, 1 held by nobody". Also counts towards {@link #nobodyNote}.

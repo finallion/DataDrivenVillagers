@@ -188,7 +188,7 @@ final class VillagerWhy {
                 villager.isBaby() ? "" : "none claimed. A villager without one cannot work; "
                         + "/ddv why <profession> checks whether the block can be found at all.");
         brain.getOptionalMemory(MemoryModuleType.POTENTIAL_JOB_SITE).ifPresent(potential ->
-                report.extra("eyeing", Text.literal(potential.pos().toShortString() + ", "
+                report.extra("eyeing", Text.literal(potential.getPos().toShortString() + ", "
                         + distance(here, potential) + " blocks, will take it on arrival" + refusal(villager, world, potential))
                         .formatted(Formatting.GRAY)));
         place(report, world, brain, MemoryModuleType.HOME, "bed", here,
@@ -307,14 +307,14 @@ final class VillagerWhy {
             }
             return;
         }
-        String where = pos.get().pos().toShortString() + ", " + distance(here, pos.get()) + " blocks";
-        if (!pos.get().dimension().equals(world.getRegistryKey())) {
-            report.warn(what, where + ", in " + pos.get().dimension().getValue() + ", another dimension");
+        String where = pos.get().getPos().toShortString() + ", " + distance(here, pos.get()) + " blocks";
+        if (!pos.get().getDimension().equals(world.getRegistryKey())) {
+            report.warn(what, where + ", in " + pos.get().getDimension().getValue() + ", another dimension");
             return;
         }
-        BlockState state = world.getBlockState(pos.get().pos());
+        BlockState state = world.getBlockState(pos.get().getPos());
         Identifier block = Registries.BLOCK.getId(state.getBlock());
-        Optional<RegistryEntry<PointOfInterestType>> poi = world.getPointOfInterestStorage().getType(pos.get().pos());
+        Optional<RegistryEntry<PointOfInterestType>> poi = world.getPointOfInterestStorage().getType(pos.get().getPos());
         if (poi.isEmpty()) {
             if (memory == MemoryModuleType.MEETING_POINT) {
                 // The core task list forgets a job site, the rest list a bed, nothing forgets a meeting
@@ -328,7 +328,7 @@ final class VillagerWhy {
                             + "forgets it; a worker loses the job with it.");
             return;
         }
-        report.ok(what, where + ", " + block + ", " + tickets(world, pos.get().pos(), poi.get()));
+        report.ok(what, where + ", " + block + ", " + tickets(world, pos.get().getPos(), poi.get()));
     }
 
 
@@ -364,7 +364,7 @@ final class VillagerWhy {
                 .toList();
         String others = leftOut == 0 ? "" : ", " + leftOut + " of other jobs left out";
         if (stations.isEmpty()) {
-            report.extra("stations", Text.literal("no " + own.map(site -> site.getIdAsString() + " ").orElse("")
+            report.extra("stations", Text.literal("no " + own.map(site -> ProfessionLoader.idOf(site) + " ").orElse("")
                     + "job site block within 48 blocks" + others).formatted(Formatting.GRAY));
             return;
         }
@@ -378,7 +378,7 @@ final class VillagerWhy {
                 withSpace++;
             }
             Optional<String> refusal = villager == null ? Optional.empty() : ProfessionBehaviours.refusal(villager, station.getType());
-            notes.add(new Note(space, station.getType().getIdAsString() + " at " + station.getPos().toShortString()
+            notes.add(new Note(space, ProfessionLoader.idOf(station.getType()) + " at " + station.getPos().toShortString()
                     + ", " + String.format(Locale.ROOT, "%.1f", Math.sqrt(station.getPos().getSquaredDistance(here)))
                     + " blocks, " + holders.describe(station)
                     + refusal.map(r -> "  not for this villager: " + r).orElse("")));
@@ -389,15 +389,15 @@ final class VillagerWhy {
         report.notes(notes, Formatting.GREEN);
     }
     private static String distance(BlockPos from, GlobalPos to) {
-        return String.format(Locale.ROOT, "%.1f", Math.sqrt(from.getSquaredDistance(to.pos())));
+        return String.format(Locale.ROOT, "%.1f", Math.sqrt(from.getSquaredDistance(to.getPos())));
     }
 
     private static String refusal(VillagerEntity villager, ServerWorld world, GlobalPos potential) {
-        ServerWorld siteWorld = world.getServer().getWorld(potential.dimension());
+        ServerWorld siteWorld = world.getServer().getWorld(potential.getDimension());
         if (siteWorld == null) {
             return "";
         }
-        return siteWorld.getPointOfInterestStorage().getType(potential.pos())
+        return siteWorld.getPointOfInterestStorage().getType(potential.getPos())
                 .flatMap(poi -> ProfessionBehaviours.refusal(villager, poi))
                 .map(reason -> " - NO, it will be turned away: " + reason)
                 .orElse("");
@@ -454,16 +454,16 @@ final class VillagerWhy {
         if (home.isEmpty()) {
             blockers.add("no bed claimed");
         } else {
-            if (!home.get().dimension().equals(world.getRegistryKey())) {
+            if (!home.get().getDimension().equals(world.getRegistryKey())) {
                 blockers.add("bed is in another dimension");
             } else {
-                BlockState state = world.getBlockState(home.get().pos());
+                BlockState state = world.getBlockState(home.get().getPos());
                 if (!state.isIn(BlockTags.BEDS)) {
                     blockers.add("the claimed bed is not a bed any more");
                 } else if (state.get(BedBlock.OCCUPIED)) {
                     blockers.add("the bed is occupied");
                 }
-                if (!home.get().pos().isWithinDistance(villager.getPos(), 2.0)) {
+                if (!home.get().getPos().isWithinDistance(villager.getPos(), 2.0)) {
                     blockers.add("bed is " + distance(villager.getBlockPos(), home.get()) + " blocks away, has to be within 2");
                 }
             }
@@ -643,7 +643,7 @@ final class VillagerWhy {
 
     private static Identifier idOf(VillagerProfession profession) {
         Identifier id = Registries.VILLAGER_PROFESSION.getId(profession);
-        return id == null ? Identifier.ofVanilla("unknown") : id;
+        return id == null ? new Identifier("unknown") : id;
     }
 
     /// The blocks the registered job site accepts, as the game holds them now.

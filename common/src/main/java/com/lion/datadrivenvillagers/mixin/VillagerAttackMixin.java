@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 /// Adds the `ATTACK_TARGET` and `ATTACK_COOLING_DOWN` memories and an attack damage attribute to every
 /// villager, because a profession changes at runtime while brain profile and attributes are fixed at
 /// entity creation. The damage value is set per villager in {@link VillagerEntityMixin}.
-/// `createVillagerAttributes` is vanilla code, so this covers NeoForge's attribute registry as well.
+/// `createVillagerAttributes` is vanilla code, so this covers Forge's attribute registry as well.
 @Mixin(VillagerEntity.class)
 public abstract class VillagerAttackMixin {
 

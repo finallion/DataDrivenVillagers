@@ -1,6 +1,6 @@
-package com.lion.datadrivenvillagers.platform.neoforge;
+package com.lion.datadrivenvillagers.platform.forge;
 
-import net.neoforged.fml.loading.FMLPaths;
+import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.nio.file.Path;
 

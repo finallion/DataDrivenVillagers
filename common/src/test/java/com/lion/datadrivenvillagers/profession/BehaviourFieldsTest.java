@@ -39,7 +39,7 @@ class BehaviourFieldsTest {
                 """);
         assertEquals(WorkBehaviour.FARM, definition.workBehaviour());
         assertEquals(ProfessionParser.FARM_GATHERABLE, definition.gatherable());
-        assertEquals(List.of(Identifier.ofVanilla("farmland")), definition.secondarySites());
+        assertEquals(List.of(new Identifier("farmland")), definition.secondarySites());
     }
 
     @Test
@@ -51,8 +51,8 @@ class BehaviourFieldsTest {
                   "gatherable_items": "minecraft:carrot"
                 }
                 """);
-        assertEquals(List.of(Identifier.ofVanilla("carrot")), definition.gatherable());
-        assertEquals(List.of(Identifier.ofVanilla("farmland")), definition.secondarySites(),
+        assertEquals(List.of(new Identifier("carrot")), definition.gatherable());
+        assertEquals(List.of(new Identifier("farmland")), definition.secondarySites(),
                 "only the list that was left out is filled in");
     }
 
@@ -87,8 +87,8 @@ class BehaviourFieldsTest {
                 }
                 """);
         assertEquals(List.of(
-                new EntityRange(Identifier.ofVanilla("creeper"), EntityRange.DEFAULT_DISTANCE),
-                new EntityRange(Identifier.ofVanilla("wolf"), 12)), definition.fears().entries());
+                new EntityRange(new Identifier("creeper"), EntityRange.DEFAULT_DISTANCE),
+                new EntityRange(new Identifier("wolf"), 12)), definition.fears().entries());
         assertFalse(definition.fears().replacesVanilla());
     }
 
@@ -118,7 +118,7 @@ class BehaviourFieldsTest {
         ProfessionDefinition definition = parse("x", """
                 { "workstation": "minecraft:smoker", "villages": ["desert", "datadrivenvillagers:swamp"] }
                 """);
-        assertEquals(List.of(Identifier.ofVanilla("desert"), Identifier.of("datadrivenvillagers", "swamp")),
+        assertEquals(List.of(new Identifier("desert"), Identifier.of("datadrivenvillagers", "swamp")),
                 definition.villages());
     }
 

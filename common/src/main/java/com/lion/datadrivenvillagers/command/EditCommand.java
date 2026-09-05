@@ -9,7 +9,7 @@ import com.lion.datadrivenvillagers.network.EditorResultPayload.Note;
 import com.lion.datadrivenvillagers.network.EditorSavePayload;
 import com.lion.datadrivenvillagers.network.EditorTradesPayload;
 import com.lion.datadrivenvillagers.network.LookSync;
-import com.lion.datadrivenvillagers.platform.Network;
+import com.lion.datadrivenvillagers.network.Network;
 import com.lion.datadrivenvillagers.platform.PlatformInfo;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;

@@ -1,13 +1,13 @@
-package com.lion.datadrivenvillagers.platform.neoforge;
+package com.lion.datadrivenvillagers.platform.forge;
 
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 
 public class PlatformInfoImpl {
 
     public static String loader() {
-        return "NeoForge " + ModList.get().getModContainerById("neoforge")
+        return "Forge " + ModList.get().getModContainerById("forge")
                 .map(container -> container.getModInfo().getVersion().toString())
                 .orElse("?");
     }

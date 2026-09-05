@@ -30,8 +30,8 @@ class AttackTest {
                 { "workstation": "minecraft:lantern", "attacks": ["minecraft:zombie", { "entity": "minecraft:skeleton", "distance": 12 }] }
                 """).attack().orElseThrow();
         assertEquals(2, attack.targets().size());
-        assertEquals(EntityRange.DEFAULT_DISTANCE, attack.of(Identifier.ofVanilla("zombie")).orElseThrow().distance());
-        assertEquals(12, attack.of(Identifier.ofVanilla("skeleton")).orElseThrow().distance());
+        assertEquals(EntityRange.DEFAULT_DISTANCE, attack.of(new Identifier("zombie")).orElseThrow().distance());
+        assertEquals(12, attack.of(new Identifier("skeleton")).orElseThrow().distance());
         assertEquals(Attack.DEFAULT_DAMAGE, attack.damage());
         assertEquals(Attack.DEFAULT_COOLDOWN, attack.cooldown());
     }

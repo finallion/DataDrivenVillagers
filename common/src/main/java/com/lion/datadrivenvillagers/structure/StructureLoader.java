@@ -10,6 +10,7 @@ import com.lion.datadrivenvillagers.platform.ConfigDirectory;
 
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.MinecraftServer;
@@ -181,7 +182,8 @@ public final class StructureLoader {
         }
 
         Identifier id = definition.processors().get();
-        Optional<RegistryEntry.Reference<StructureProcessorList>> entry = processors.getEntry(id);
+        Optional<RegistryEntry.Reference<StructureProcessorList>> entry =
+                processors.getEntry(RegistryKey.of(RegistryKeys.PROCESSOR_LIST, id));
         if (entry.isEmpty()) {
             StructureRegistry.addError(definition.name() + EXTENSION,
                     "\"processors\" names " + id + ", which is not a processor list in this world");

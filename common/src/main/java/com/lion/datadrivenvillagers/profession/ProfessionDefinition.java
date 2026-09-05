@@ -59,7 +59,7 @@ public record ProfessionDefinition(
         int searchDistance
 ) implements TexturedDefinition {
 
-    /// `MobEntity.createMobAttributes` max health, which `createVillagerAttributes` leaves unchanged in 1.21.1.
+    /// `MobEntity.createMobAttributes` max health, which `createVillagerAttributes` leaves unchanged in 1.20.1.
     public static final double VANILLA_HEALTH = 20.0;
 
     public String name() {

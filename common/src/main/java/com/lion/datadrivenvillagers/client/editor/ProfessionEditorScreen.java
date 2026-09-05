@@ -7,7 +7,7 @@ import com.lion.datadrivenvillagers.network.EditorResultPayload;
 import com.lion.datadrivenvillagers.network.EditorResultPayload.Note;
 import com.lion.datadrivenvillagers.network.EditorSavePayload;
 import com.lion.datadrivenvillagers.network.EditorTradesPayload;
-import com.lion.datadrivenvillagers.platform.ClientNetwork;
+import com.lion.datadrivenvillagers.network.ClientNetwork;
 import com.lion.datadrivenvillagers.profession.HatKind;
 import com.lion.datadrivenvillagers.profession.WorkBehaviour;
 

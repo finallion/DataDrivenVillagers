@@ -115,7 +115,7 @@ public final class ScaffoldCommand {
             kept(source, nbt);
         } else {
             try {
-                NbtIo.writeCompressed(plot.get(), nbt);
+                NbtIo.writeCompressed(plot.get(), nbt.toFile());
             } catch (IOException e) {
                 source.sendError(Text.literal("Could not write " + nbt + ": " + e.getMessage()));
                 return written;

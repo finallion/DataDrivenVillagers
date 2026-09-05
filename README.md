@@ -6,7 +6,7 @@ trades.
 
 No Java, no fork, no resource pack required.
 
-- Minecraft 1.21.1, Fabric and NeoForge
+- Minecraft 1.20.1, Fabric and Forge
 - Fabric additionally needs Fabric API
 
 ## Quick start
@@ -101,7 +101,7 @@ the hat of the **villager type texture underneath** survives, and vanilla's rule
 
     the type's hat is drawn  <=>  hat == none  ||  (hat == partial && that type's own hat != full)
 
-Two things follow that are worth knowing before wondering why nothing changes. In 1.21.1 exactly two
+Two things follow that are worth knowing before wondering why nothing changes. In 1.20.1 exactly two
 villager types bring a hat of their own, `minecraft:desert` and `minecraft:snow`, and both declare it
 `full` - so `partial` behaves like `full` on those two and like `none` on every other type, and is
 never something in between. And a villager type from this mod never brings one, because its texture is
@@ -372,7 +372,7 @@ images, and the report says how many.
 
 On Fabric there are no registry phases: if another mod registers its blocks after this one runs, those
 blocks are not resolvable yet and are skipped with a warning in the log. Vanilla blocks are always
-available. NeoForge is not affected, because registration is split across the matching
+available. Forge is not affected, because registration is split across the matching
 `RegisterEvent`s there.
 
 A definition survives as long as at least one of its workstation blocks resolves.
@@ -380,7 +380,7 @@ A definition survives as long as at least one of its workstation blocks resolves
 The other way round is the dangerous one. A block state may belong to exactly one point of interest,
 and this mod checks that before it registers a job site: a block another mod has already claimed is
 skipped with a warning. But a block that another mod claims **after** this mod ran cannot be checked,
-and on NeoForge that is a crash at startup, because vanilla refuses the second claim there where
+and on Forge that is a crash at startup, because vanilla refuses the second claim there where
 Fabric silently lets the last writer win. Not measured, read out of the vanilla code: a definition on
 a block that another villager mod later makes a workstation of its own is nothing to ship without
 asking that mod. `/ddv blocks` shows what is taken at the moment it is asked, and no earlier.

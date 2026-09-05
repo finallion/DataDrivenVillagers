@@ -46,9 +46,9 @@ class TypeParserTest {
                 """);
 
         assertEquals(1, definition.biomes().size());
-        assertEquals("minecraft:snowy_plains", definition.biomes().getFirst().toString());
+        assertEquals("minecraft:snowy_plains", definition.biomes().get(0).toString());
         assertEquals(1, definition.biomeTags().size());
-        assertEquals("minecraft:is_taiga", definition.biomeTags().getFirst().toString());
+        assertEquals("minecraft:is_taiga", definition.biomeTags().get(0).toString());
     }
 
     @Test

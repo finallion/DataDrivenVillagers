@@ -74,7 +74,7 @@ public final class ProfessionParser {
         List<Identifier> gatherable = JsonFields.identifiers(root, "gatherable_items", false);
         List<Identifier> secondarySites = JsonFields.identifiers(root, "secondary_job_sites", false);
         if (workBehaviour == WorkBehaviour.FARM && overrides.isPresent()
-                && !overrides.get().equals(Identifier.ofVanilla("farmer"))) {
+                && !overrides.get().equals(new Identifier("farmer"))) {
             // The farm task needs farmland in SECONDARY_JOB_SITE, and the secondary sites of the
             // overridden profession are frozen in its record.
             throw new DefinitionParseException("\"work_behaviour\": \"farm\" cannot be given to an override: "
@@ -116,10 +116,10 @@ public final class ProfessionParser {
                 JsonFields.positiveInt(root, "search_distance", DEFAULT_SEARCH_DISTANCE));
     }
 
-    /// `minecraft:farmer`'s values in 1.21.1 (`VillagerProfession.register`): four
+    /// `minecraft:farmer`'s values in 1.20.1 (`VillagerProfession.register`): four
     /// items, not the six newer versions have.
     public static final List<Identifier> FARM_GATHERABLE = List.of(
-            Identifier.ofVanilla("wheat"), Identifier.ofVanilla("wheat_seeds"),
-            Identifier.ofVanilla("beetroot_seeds"), Identifier.ofVanilla("bone_meal"));
-    public static final List<Identifier> FARM_SECONDARY_SITES = List.of(Identifier.ofVanilla("farmland"));
+            new Identifier("wheat"), new Identifier("wheat_seeds"),
+            new Identifier("beetroot_seeds"), new Identifier("bone_meal"));
+    public static final List<Identifier> FARM_SECONDARY_SITES = List.of(new Identifier("farmland"));
 }

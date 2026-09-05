@@ -1,4 +1,4 @@
-package com.lion.datadrivenvillagers.platform.neoforge;
+package com.lion.datadrivenvillagers.platform.forge;
 
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;

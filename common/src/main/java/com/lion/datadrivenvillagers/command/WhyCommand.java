@@ -181,12 +181,12 @@ public final class WhyCommand {
         }
 
         RegistryEntry<PointOfInterestType> poi = jobSite.get();
-        report.ok("job site accepted by it", poi.getIdAsString() + blocksOf(poi));
+        report.ok("job site accepted by it", ProfessionLoader.idOf(poi) + blocksOf(poi));
 
         if (poi.isIn(PointOfInterestTypeTags.ACQUIRABLE_JOB_SITE)) {
             report.ok("job site is in acquirable_job_site", "");
         } else {
-            report.broken("job site is in acquirable_job_site", poi.getIdAsString() + " is not in the tag",
+            report.broken("job site is in acquirable_job_site", ProfessionLoader.idOf(poi) + " is not in the tag",
                     "without the tag the job site sensor never looks at the block, however correct "
                             + "everything else is. The tag is filled while a world loads.");
         }
@@ -231,7 +231,7 @@ public final class WhyCommand {
         if (leading == 0) {
             report.broken("blocks lead to the job site", "none of " + declared.size() + " block(s)",
                     "a villager finds the job through the block, so nothing can happen until one of "
-                            + "these leads to " + poi.getIdAsString() + ".");
+                            + "these leads to " + ProfessionLoader.idOf(poi) + ".");
         } else {
             report.ok("blocks lead to the job site", leading + " of " + declared.size() + " block(s)");
         }
@@ -251,7 +251,7 @@ public final class WhyCommand {
                 return "not a job site block";
             }
             if (holder.value() != poi.value()) {
-                return "belongs to " + holder.getIdAsString();
+                return "belongs to " + ProfessionLoader.idOf(holder);
             }
         }
         return null;
@@ -275,7 +275,7 @@ public final class WhyCommand {
             report.verdict(true, blocks.isEmpty()
                     ? "Villagers can take this job wherever one of its blocks is free."
                     : blocks.size() == 1
-                            ? "Villagers can take this job at any free " + blocks.getFirst() + "."
+                            ? "Villagers can take this job at any free " + blocks.get(0) + "."
                             : "Villagers can take this job at any free block of its job site: "
                                     + shortList(blocks) + ".");
         }
@@ -334,7 +334,7 @@ public final class WhyCommand {
         return definition.name() + ".json changes how " + target + " " + and(does) + ".";
     }
 
-    /// `typeHatVisible = profession == NONE || (profession == PARTIAL && type != FULL)`. In 1.21.1 only
+    /// `typeHatVisible = profession == NONE || (profession == PARTIAL && type != FULL)`. In 1.20.1 only
     /// `minecraft:desert` and `minecraft:snow` declare a hat (both `full`), and a runtime type texture
     /// of ours has no `.png.mcmeta` and therefore none.
     private static void hat(Report report, ProfessionDefinition definition) {
@@ -386,9 +386,9 @@ public final class WhyCommand {
     /// "a, b and c".
     private static String and(List<String> parts) {
         if (parts.size() == 1) {
-            return parts.getFirst();
+            return parts.get(0);
         }
-        return String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.getLast();
+        return String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.get(parts.size() - 1);
     }
 
     /// Blocks of this job site within 48 blocks of the player, with free places and who holds the rest.
@@ -478,7 +478,7 @@ public final class WhyCommand {
     /// Work behaviour, fears, attack, health, villages: each only when the file sets it, with what it depends on.
     private static void behaviour(Report report, ProfessionDefinition definition) {
         if (definition.workBehaviour() == WorkBehaviour.FARM) {
-            boolean farmland = definition.secondarySites().contains(Identifier.ofVanilla("farmland"));
+            boolean farmland = definition.secondarySites().contains(new Identifier("farmland"));
             boolean seeds = definition.gatherable().stream().anyMatch(item -> item.getPath().endsWith("seeds"));
             List<String> missing = new ArrayList<>();
             if (!farmland) {
@@ -537,8 +537,7 @@ public final class WhyCommand {
         }
 
         Identifier id = definition.gift().get();
-        LootTable table = source.getServer().getReloadableRegistries()
-                .getLootTable(RegistryKey.of(RegistryKeys.LOOT_TABLE, id));
+        LootTable table = source.getServer().getLootManager().getLootTable(id);
         // A missing loot table resolves to LootTable.EMPTY, never to an error.
         boolean usable = table != LootTable.EMPTY;
         report.extra("gift", Text.literal(id + (usable ? "" : "  no such loot table, or it is empty"))

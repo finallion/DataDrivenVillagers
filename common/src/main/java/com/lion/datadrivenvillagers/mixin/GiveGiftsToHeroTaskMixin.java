@@ -6,9 +6,6 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 
 import net.minecraft.entity.ai.brain.task.GiveGiftsToHeroTask;
 import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.loot.LootTable;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -31,8 +28,7 @@ public abstract class GiveGiftsToHeroTaskMixin {
     @ModifyExpressionValue(method = "getGifts",
             at = @At(value = "INVOKE", target = "Ljava/util/Map;get(Ljava/lang/Object;)Ljava/lang/Object;"))
     private Object datadrivenvillagers$gift(Object original, VillagerEntity villager) {
-        Optional<RegistryKey<LootTable>> gift = datadrivenvillagers$giftId(villager)
-                .map(id -> RegistryKey.of(RegistryKeys.LOOT_TABLE, id));
+        Optional<Identifier> gift = datadrivenvillagers$giftId(villager);
         return gift.isPresent() ? gift.get() : original;
     }
 

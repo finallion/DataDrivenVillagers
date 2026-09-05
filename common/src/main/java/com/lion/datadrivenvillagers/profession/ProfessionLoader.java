@@ -44,7 +44,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /// Reads every profession file during startup and registers a point of interest plus a villager
-/// profession for each. Three phases, because NeoForge hands out one RegisterEvent per registry and
+/// profession for each. Three phases, because Forge hands out one RegisterEvent per registry and
 /// the block registry is only complete when the point of interest registry comes up. A broken file is
 /// logged and skipped, never stops the others.
 public final class ProfessionLoader {
@@ -71,7 +71,7 @@ public final class ProfessionLoader {
     }
 
     /// Parse and build without touching a registry. Idempotent and called from both registration
-    /// steps: NeoForge fires RegisterEvent for villager professions before points of interest.
+    /// steps: Forge fires RegisterEvent for villager professions before points of interest.
     public static void prepare() {
         if (prepared) {
             return;
@@ -640,6 +640,12 @@ public final class ProfessionLoader {
                 .findFirst();
     }
 
+    /// @return the point of interest id as text, `?` for an entry without a key, which the reports
+    ///         print rather than throw on
+    public static String idOf(RegistryEntry<PointOfInterestType> poi) {
+        return poi.getKey().map(key -> key.getValue().toString()).orElse("?");
+    }
+
     private static void addWorkstations(ProfessionDefinition definition,
                                         RegistryEntry<PointOfInterestType> jobSite) {
         List<Identifier> missing = new ArrayList<>();
@@ -751,7 +757,7 @@ public final class ProfessionLoader {
         return new PointOfInterestType(Set.copyOf(states), definition.ticketCount(), definition.searchDistance());
     }
 
-    /// A block state belongs to exactly one point of interest type. NeoForge aborts registration on a
+    /// A block state belongs to exactly one point of interest type. Forge aborts registration on a
     /// second claim, Fabric lets the last writer win; this check makes both reject up front. Shared
     /// with `/ddv blocks`, so "free" means the same thing there.
     public static Optional<String> existingOwner(Set<BlockState> states) {

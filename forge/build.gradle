@@ -5,8 +5,15 @@ plugins {
 loom {
 	accessWidenerPath = project(":common").loom.accessWidenerPath
 
-	neoForge {
-		accessTransformer file("src/main/resources/META-INF/accesstransformer.cfg")
+	forge {
+		// Forge has no access wideners. Loom converts ours into a transformer, which is why the
+		// widener stays the single place to declare a widened member.
+		convertAccessWideners = true
+		extraAccessWideners.add loom.accessWidenerPath.get().asFile.name
+
+		// Forge reads mixin configs from the jar manifest, not from mods.toml. Without this line not
+		// a single mixin applies, silently.
+		mixinConfig "datadrivenvillagers-common.mixins.json"
 	}
 
 	runs {
@@ -18,7 +25,7 @@ loom {
 
 architectury {
 	platformSetupLoomIde()
-	neoForge()
+	forge()
 }
 
 configurations {
@@ -26,20 +33,24 @@ configurations {
 	shadowCommon
 	compileClasspath.extendsFrom common
 	runtimeClasspath.extendsFrom common
-	developmentNeoForge.extendsFrom common
+	developmentForge.extendsFrom common
 }
 
 dependencies {
-	neoForge "net.neoforged:neoforge:${rootProject.neoforge_version}"
+	forge "net.minecraftforge:forge:${rootProject.forge_version}"
+
+	// Fabric loader and NeoForge ship MixinExtras, Forge does not: the mixins in common use
+	// @ModifyExpressionValue and friends, so it travels inside the jar.
+	implementation(include("io.github.llamalad7:mixinextras-forge:${rootProject.mixin_extras_version}"))
 
 	common(project(path: ":common", configuration: "namedElements")) { transitive false }
-	shadowCommon(project(path: ":common", configuration: "transformProductionNeoForge")) { transitive = false }
+	shadowCommon(project(path: ":common", configuration: "transformProductionForge")) { transitive = false }
 }
 
 processResources {
 	inputs.property "version", project.version
 
-	filesMatching("META-INF/neoforge.mods.toml") {
+	filesMatching("META-INF/mods.toml") {
 		expand "version": project.version
 	}
 }
@@ -78,7 +89,7 @@ components.java {
 
 publishing {
 	publications {
-		mavenNeoForge(MavenPublication) {
+		mavenForge(MavenPublication) {
 			artifactId = rootProject.archives_base_name + "-" + project.name
 			from components.java
 		}

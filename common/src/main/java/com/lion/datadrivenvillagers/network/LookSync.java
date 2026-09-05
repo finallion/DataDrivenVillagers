@@ -4,7 +4,6 @@ import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.PngHeader;
 import com.lion.datadrivenvillagers.TexturedDefinition;
-import com.lion.datadrivenvillagers.platform.Network;
 import com.lion.datadrivenvillagers.profession.HatKind;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
@@ -13,7 +12,7 @@ import com.lion.datadrivenvillagers.type.TypeDefinition;
 import com.lion.datadrivenvillagers.type.TypeLoader;
 import com.lion.datadrivenvillagers.type.TypeRegistry;
 
-import net.minecraft.network.packet.CustomPayload;
+
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
@@ -45,7 +44,7 @@ public final class LookSync {
     private LookSync() {
     }
 
-    public static List<CustomPayload> payloads() {
+    public static List<Payload> payloads() {
         List<LookPayload> looks = new ArrayList<>();
         Path professions = ProfessionLoader.directory();
         for (ProfessionDefinition definition : ProfessionRegistry.ordered()) {
@@ -56,7 +55,7 @@ public final class LookSync {
             looks.add(look(LookPayload.Kind.TYPE, definition.id(), definition, HatKind.NONE, types));
         }
 
-        List<CustomPayload> payloads = new ArrayList<>();
+        List<Payload> payloads = new ArrayList<>();
         payloads.add(new LooksBeginPayload(looks.size()));
         payloads.addAll(looks);
         return payloads;
@@ -126,8 +125,8 @@ public final class LookSync {
         return send(player, payloads());
     }
 
-    private static int send(ServerPlayerEntity player, List<CustomPayload> payloads) {
-        for (CustomPayload payload : payloads) {
+    private static int send(ServerPlayerEntity player, List<Payload> payloads) {
+        for (Payload payload : payloads) {
             Network.send(player, payload);
         }
         return payloads.size() - 1;
@@ -143,7 +142,7 @@ public final class LookSync {
         if (players.isEmpty()) {
             return 0;
         }
-        List<CustomPayload> payloads = payloads();
+        List<Payload> payloads = payloads();
         for (ServerPlayerEntity player : players) {
             send(player, payloads);
         }

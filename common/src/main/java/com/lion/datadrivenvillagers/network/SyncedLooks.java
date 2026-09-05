@@ -13,8 +13,7 @@ import java.util.Optional;
 /// Client-side store of the looks the server sent. Server wins: while {@link #active()} the renderer
 /// asks here first and the client's own config folder only fills gaps. Cleared on disconnect.
 ///
-/// Touches no texture manager, so it stays loadable on a dedicated server, where the NeoForge payload
-/// registration has to name the handler.
+/// Touches no texture manager, so it stays loadable on a dedicated server.
 public final class SyncedLooks {
 
     /// One definition as the server described it; answers the same questions as {@link TexturedDefinition}.
