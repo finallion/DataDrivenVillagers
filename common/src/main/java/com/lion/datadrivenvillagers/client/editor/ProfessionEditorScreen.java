@@ -7,7 +7,7 @@ import com.lion.datadrivenvillagers.network.EditorResultPayload;
 import com.lion.datadrivenvillagers.network.EditorResultPayload.Note;
 import com.lion.datadrivenvillagers.network.EditorSavePayload;
 import com.lion.datadrivenvillagers.network.EditorTradesPayload;
-import com.lion.datadrivenvillagers.network.ClientNetwork;
+import com.lion.datadrivenvillagers.platform.ClientNetwork;
 import com.lion.datadrivenvillagers.profession.HatKind;
 import com.lion.datadrivenvillagers.profession.WorkBehaviour;
 
@@ -569,8 +569,15 @@ public final class ProfessionEditorScreen extends Screen {
             status = List.of(EditorResultPayload.bad("Give the file a name first, on the Basics page."));
             return;
         }
+        String json = GSON.toJson(root);
+        if (json.length() > EditorOpenPayload.MAX_JSON) {
+            status = List.of(EditorResultPayload.bad("This file is " + json.length() + " characters and one "
+                    + "packet carries " + EditorOpenPayload.MAX_JSON + ". Nothing was sent; shorten it, or edit "
+                    + "the file where the server keeps it."));
+            return;
+        }
         status = List.of(EditorResultPayload.ok("Saving..."));
-        ClientNetwork.send(new EditorSavePayload(fileName, GSON.toJson(root)));
+        ClientNetwork.send(new EditorSavePayload(fileName, json));
     }
 
     @Override

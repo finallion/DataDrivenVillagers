@@ -3,9 +3,9 @@ package com.lion.datadrivenvillagers.forge;
 import com.lion.datadrivenvillagers.client.RuntimeTextures;
 import com.lion.datadrivenvillagers.client.editor.EditorFields;
 import com.lion.datadrivenvillagers.client.editor.ProfessionEditorScreen;
-import com.lion.datadrivenvillagers.network.ClientNetwork;
 import com.lion.datadrivenvillagers.network.EditorBridge;
 import com.lion.datadrivenvillagers.network.SyncedLooks;
+import com.lion.datadrivenvillagers.platform.ClientNetwork;
 
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.common.MinecraftForge;

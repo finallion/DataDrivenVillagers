@@ -38,7 +38,7 @@ public abstract class FindPointOfInterestTaskMixin {
             Operation<Stream<Pair<RegistryEntry<PointOfInterestType>, BlockPos>>> original,
             boolean onlyRunIfChild, org.apache.commons.lang3.mutable.MutableLong nextUpdate,
             it.unimi.dsi.fastutil.longs.Long2ObjectMap<?> positions, Predicate<?> unused,
-            java.util.function.BiPredicate<?, ?> unusedToo, MemoryQueryResult<?, ?> memory, java.util.Optional<?> entityStatus,
+            MemoryQueryResult<?, ?> memory, java.util.Optional<?> entityStatus,
             ServerWorld world, PathAwareEntity entity, long time) {
         Stream<Pair<RegistryEntry<PointOfInterestType>, BlockPos>> found =
                 original.call(storage, typePredicate, positionPredicate, center, radius, status);

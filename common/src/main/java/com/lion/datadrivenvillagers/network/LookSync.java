@@ -4,6 +4,7 @@ import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.PngHeader;
 import com.lion.datadrivenvillagers.TexturedDefinition;
+import com.lion.datadrivenvillagers.platform.Network;
 import com.lion.datadrivenvillagers.profession.HatKind;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
@@ -28,15 +29,15 @@ import java.util.Optional;
 /// every join and reload, no cache.
 public final class LookSync {
 
-    /// The hard limit is the packet frame: its length is a VarInt of at most three bytes, and a packet
-    /// above this throws in the encoder and drops the connection. Vanilla's one megabyte for custom
-    /// payloads applies to payloads the receiver does not know, not to ours.
-    static final int MAX_PACKET_BYTES = 2_097_151;
+    /// The hard limit is vanilla's cap on a custom payload: `CustomPayloadS2CPacket` refuses anything
+    /// larger while reading, and the client drops the connection over it. It applies to every channel,
+    /// ours included.
+    static final int MAX_PACKET_BYTES = 1_048_576;
 
     /// One {@link LookPayload} carries two images, so each is held to a size at which both still fit
     /// with room to spare. A larger png is left out with a warning; the client falls back to its own
     /// folder for that image.
-    public static final int MAX_PNG_BYTES = 900_000;
+    public static final int MAX_PNG_BYTES = 500_000;
 
     /// Ids, hat, the optionals and the frame, generously.
     static final int PACKET_HEADROOM = 16_384;

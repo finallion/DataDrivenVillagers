@@ -9,7 +9,7 @@ import com.lion.datadrivenvillagers.network.EditorResultPayload.Note;
 import com.lion.datadrivenvillagers.network.EditorSavePayload;
 import com.lion.datadrivenvillagers.network.EditorTradesPayload;
 import com.lion.datadrivenvillagers.network.LookSync;
-import com.lion.datadrivenvillagers.network.Network;
+import com.lion.datadrivenvillagers.platform.Network;
 import com.lion.datadrivenvillagers.platform.PlatformInfo;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
@@ -133,6 +133,13 @@ public final class EditCommand {
                         + e.getMessage()));
                 return 0;
             }
+        }
+
+        if (json.length() > EditorOpenPayload.MAX_JSON) {
+            source.sendError(Text.literal(existing.map(path -> path.getFileName().toString()).orElse(name)
+                    + " is " + json.length() + " characters and one packet carries "
+                    + EditorOpenPayload.MAX_JSON + ". The editor cannot open it; a text editor can."));
+            return 0;
         }
 
         Network.send(player, new EditorOpenPayload(name, json, state(name, existing.isPresent())));

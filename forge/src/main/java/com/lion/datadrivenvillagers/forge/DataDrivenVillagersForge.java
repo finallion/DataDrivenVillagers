@@ -3,7 +3,7 @@ package com.lion.datadrivenvillagers.forge;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.command.DataDrivenVillagersCommand;
 import com.lion.datadrivenvillagers.network.LookSync;
-import com.lion.datadrivenvillagers.network.Network;
+import com.lion.datadrivenvillagers.platform.Network;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 import com.lion.datadrivenvillagers.structure.StructureLoader;
 import com.lion.datadrivenvillagers.type.TypeLoader;

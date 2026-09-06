@@ -92,7 +92,7 @@ ones, and it is used for the zombie variant as well. Give the zombie an image of
 On a server the images travel: when a player joins, and again after every `/ddv reload`, the server
 sends each profession and type to the client - hat, texture identifier or the png itself. What the
 server says wins over the client's own config folder, which only fills in what the server left open.
-A png above 900 kB stays home with a warning; that size belongs in a resource pack.
+A png above 500 kB stays home with a warning; that size belongs in a resource pack.
 
 ### What `hat` really decides
 
