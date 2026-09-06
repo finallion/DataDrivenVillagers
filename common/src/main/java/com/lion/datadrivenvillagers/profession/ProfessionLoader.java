@@ -7,6 +7,7 @@ import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.ReloadOutcome;
 import com.lion.datadrivenvillagers.platform.ConfigDirectory;
+import com.lion.datadrivenvillagers.platform.JobSiteStates;
 import com.lion.datadrivenvillagers.platform.RegistryHelper;
 
 import net.minecraft.block.Block;
@@ -172,7 +173,7 @@ public final class ProfessionLoader {
                 // Vanilla fills POI_STATES_TO_TYPE in static init, before any mod POI exists, and the
                 // job site sensor reads that map, not the registry.
                 for (BlockState state : poi.blockStates()) {
-                    PointOfInterestTypes.POI_STATES_TO_TYPE.put(state, entry);
+                    JobSiteStates.put(state, entry);
                 }
                 ProfessionRegistry.add(definition, entry);
                 warnIfTextureless(definition);
@@ -468,8 +469,9 @@ public final class ProfessionLoader {
         }
         boolean removed = false;
         for (BlockState state : PointOfInterestTypes.getStatesOfBlock(block.get())) {
-            if (PointOfInterestTypes.POI_STATES_TO_TYPE.get(state) == poi) {
-                PointOfInterestTypes.POI_STATES_TO_TYPE.remove(state);
+            RegistryEntry<PointOfInterestType> claimed = JobSiteStates.get(state);
+            if (claimed != null && claimed.value() == poi.value()) {
+                JobSiteStates.remove(state);
                 removed = true;
             }
         }
@@ -486,7 +488,7 @@ public final class ProfessionLoader {
             return false;
         }
         for (BlockState state : states) {
-            PointOfInterestTypes.POI_STATES_TO_TYPE.put(state, poi);
+            JobSiteStates.put(state, poi);
         }
         return true;
     }
@@ -666,7 +668,7 @@ public final class ProfessionLoader {
                 continue;
             }
             for (BlockState state : states) {
-                PointOfInterestTypes.POI_STATES_TO_TYPE.put(state, jobSite);
+                JobSiteStates.put(state, jobSite);
             }
             added++;
         }
@@ -762,7 +764,7 @@ public final class ProfessionLoader {
     /// with `/ddv blocks`, so "free" means the same thing there.
     public static Optional<String> existingOwner(Set<BlockState> states) {
         for (BlockState state : states) {
-            RegistryEntry<PointOfInterestType> existing = PointOfInterestTypes.POI_STATES_TO_TYPE.get(state);
+            RegistryEntry<PointOfInterestType> existing = JobSiteStates.get(state);
             if (existing != null) {
                 return Optional.of(existing.getKey()
                         .map(key -> key.getValue().toString())

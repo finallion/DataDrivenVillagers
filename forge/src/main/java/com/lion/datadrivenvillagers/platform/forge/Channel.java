@@ -23,9 +23,9 @@ import java.util.function.Supplier;
 /// packet id. Both sides register the same list in the same order — the server included, because the
 /// encoder of a server-to-client packet lives there.
 ///
-/// The client-only calls sit in a nested lambda on purpose. That lambda is created when the handler
-/// runs, which happens on a client and nowhere else, so a dedicated server never loads
-/// {@link SyncedLooks} and through it the render classes.
+/// The client-only calls sit in a nested lambda, which is created when the handler runs and therefore
+/// only on a client: a dedicated server never loads {@link SyncedLooks} or the render classes behind
+/// it.
 final class Channel {
 
     private static final String PROTOCOL = "1";

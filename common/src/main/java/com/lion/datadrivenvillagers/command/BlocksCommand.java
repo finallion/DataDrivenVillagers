@@ -1,5 +1,6 @@
 package com.lion.datadrivenvillagers.command;
 
+import com.lion.datadrivenvillagers.platform.JobSiteStates;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -74,7 +75,7 @@ public final class BlocksCommand {
     private static Map<String, Set<String>> takenByPoi() {
         Map<String, Set<String>> byPoi = new TreeMap<>();
         for (Map.Entry<BlockState, RegistryEntry<PointOfInterestType>> entry
-                : PointOfInterestTypes.POI_STATES_TO_TYPE.entrySet()) {
+                : JobSiteStates.all().entrySet()) {
             String poi = entry.getValue().getKey()
                     .map(key -> key.getValue().toString())
                     .orElse("an unnamed point of interest");

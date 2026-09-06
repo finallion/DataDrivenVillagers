@@ -24,10 +24,9 @@ import net.minecraftforge.registries.RegisterEvent;
 public class DataDrivenVillagersForge {
 
     /// Forge fires the villager profession RegisterEvent before the point of interest one; both steps
-    /// call `ProfessionLoader.prepare()`, which parses and builds once.
+    /// call `ProfessionLoader.prepare()`, which parses and builds once. Registration happens only in
+    /// that event: Forge locks the registries everywhere else.
     public DataDrivenVillagersForge() {
-        DataDrivenVillagers.init();
-
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(DataDrivenVillagersForge::onRegister);
         MinecraftForge.EVENT_BUS.addListener(DataDrivenVillagersForge::onRegisterCommands);

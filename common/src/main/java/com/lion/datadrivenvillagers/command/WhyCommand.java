@@ -4,6 +4,7 @@ import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.PngHeader;
 import com.lion.datadrivenvillagers.network.LookSync;
+import com.lion.datadrivenvillagers.platform.JobSiteStates;
 import com.lion.datadrivenvillagers.profession.EntityRange;
 import com.lion.datadrivenvillagers.profession.HatKind;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
@@ -246,7 +247,7 @@ public final class WhyCommand {
         }
 
         for (BlockState state : states) {
-            RegistryEntry<PointOfInterestType> holder = PointOfInterestTypes.POI_STATES_TO_TYPE.get(state);
+            RegistryEntry<PointOfInterestType> holder = JobSiteStates.get(state);
             if (holder == null) {
                 return "not a job site block";
             }
@@ -363,7 +364,7 @@ public final class WhyCommand {
     /// Blocks leading to the job site, from POI_STATES_TO_TYPE: the map the sensor reads, so a block
     /// another mod took is not in here. The job site's own id says nothing to someone holding a block.
     private static List<String> jobSiteBlocks(RegistryEntry<PointOfInterestType> poi) {
-        return PointOfInterestTypes.POI_STATES_TO_TYPE.entrySet().stream()
+        return JobSiteStates.all().entrySet().stream()
                 .filter(entry -> entry.getValue().value() == poi.value())
                 .map(entry -> Registries.BLOCK.getId(entry.getKey().getBlock()).toString())
                 .distinct().sorted().toList();

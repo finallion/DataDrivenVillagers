@@ -15,9 +15,8 @@ import net.minecraft.util.Identifier;
 /// @param state    what the running game holds for this file, already phrased
 public record EditorOpenPayload(String fileName, String json, Note state) implements Payload {
 
-    /// Characters, not bytes: a string is read against three times this, and the same number carries
-    /// {@link EditorSavePayload} back. That one travels client to server, where vanilla caps a custom
-    /// payload at 32767 bytes, so three times this plus the file name has to stay below it.
+    /// Characters, not bytes: a string is read against three times this. {@link EditorSavePayload}
+    /// carries the same number to the server, where a custom payload caps at 32767 bytes.
     public static final int MAX_JSON = 10_000;
 
     public static final Identifier ID = DataDrivenVillagers.id("editor_open");
