@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.lion.datadrivenvillagers.neoforge.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "mixins": [
+    "RaidHeroGiftMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

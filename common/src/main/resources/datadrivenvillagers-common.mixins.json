@@ -1,6 +1,7 @@
 {
   "required": true,
   "package": "com.lion.datadrivenvillagers.mixin",
+  "plugin": "com.lion.datadrivenvillagers.DataDrivenVillagersMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "minVersion": "0.8",
   "mixins": [

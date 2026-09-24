@@ -18,6 +18,9 @@ Define villager professions in JSON: bind one to a workstation block, give it a 
 [[mixins]]
 config = "datadrivenvillagers-common.mixins.json"
 
+[[mixins]]
+config = "datadrivenvillagers-neoforge.mixins.json"
+
 [[dependencies.datadrivenvillagers]]
 modId = "neoforge"
 # "mandatory" was replaced by "type" in the 1.20.5 loader generation.
