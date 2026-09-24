@@ -13,7 +13,7 @@ loom {
 
 		// Forge reads mixin configs from the jar manifest, not from mods.toml. Without this line not
 		// a single mixin applies, silently.
-		mixinConfig "datadrivenvillagers-common.mixins.json"
+		mixinConfig "datadrivenvillagers-common.mixins.json", "datadrivenvillagers-forge.mixins.json"
 	}
 
 	runs {
