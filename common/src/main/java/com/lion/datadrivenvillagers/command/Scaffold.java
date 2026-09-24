@@ -44,7 +44,7 @@ public final class Scaffold {
         return List.of(
                 tradesPiece(definition),
                 new Piece(GIFT, "datapack/data/" + gift.getNamespace()
-                        + "/loot_table/" + gift.getPath() + ".json", gift(definition)),
+                        + "/loot_tables/" + gift.getPath() + ".json", gift(definition)),
                 new Piece(LANG, "resourcepack/assets/minecraft/lang/" + LANG, lang(definition)));
     }
 

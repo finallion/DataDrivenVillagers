@@ -569,7 +569,8 @@ public final class WhyCommand {
         namedBiomes(report, definition, key, biomes);
         biomeTags(report, definition, key, biomes);
 
-        long held = VillagerType.BIOME_TO_TYPE.values().stream().filter(key::equals).count();
+        long held = VillagerType.BIOME_TO_TYPE.values().stream()
+                .filter(type -> definition.id().equals(Registries.VILLAGER_TYPE.getId(type))).count();
         if (report.isBroken()) {
             report.verdict(false, "Broken at: " + report.firstBreak());
         } else if (held == 0) {
