@@ -387,4 +387,4 @@ asking that mod. `/ddv blocks` shows what is taken at the moment it is asked, an
 
 ## License
 
-CC0-1.0
+GPL-3.0, see [LICENSE](LICENSE).
