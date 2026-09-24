@@ -590,6 +590,9 @@ public final class ProfessionEditorScreen extends Screen {
         }
 
         if (!suggestions.isEmpty()) {
+            // Field text is flushed after this fill, so only depth keeps the list on top.
+            context.getMatrices().push();
+            context.getMatrices().translate(0, 0, 300);
             int box = suggestions.size() * SUGGESTION_HEIGHT;
             context.fill(suggestionX, suggestionY, suggestionX + suggestionWidth, suggestionY + box,
                     SUGGESTION_BACKGROUND);
@@ -600,6 +603,7 @@ public final class ProfessionEditorScreen extends Screen {
                 context.drawTextWithShadow(textRenderer, suggestions.get(i), suggestionX + 3, rowY + 2,
                         under ? TITLE : LABEL);
             }
+            context.getMatrices().pop();
         }
 
         // Wrapped, not drawn as one line: the reload answer is a sentence, not a label, and the
