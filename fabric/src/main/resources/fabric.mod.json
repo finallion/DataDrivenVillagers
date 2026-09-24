@@ -5,11 +5,11 @@
   "name": "DataDrivenVillagers",
   "description": "Define villager professions in JSON: bind one to a workstation block, give it a texture, and let VillagerTradingPlus handle the trades.",
   "authors": [
-    "Finallion"
+    "Lion"
   ],
   "contact": {},
 
-  "license": "CC0-1.0",
+  "license": "GPL-3.0-only",
 
   "environment": "*",
   "entrypoints": {
