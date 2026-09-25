@@ -38,8 +38,7 @@ public record ScheduleDefinition(String name, List<Entry> entries) {
         return false;
     }
 
-    /// Same rule as vanilla's `Schedule.getActivityForTime`: the last entry at or before the tick,
-    /// and before the first entry the last one of the previous day.
+    /// Same rule as vanilla's `Schedule.getActivityForTime`.
     public ScheduleActivity activityAt(int time) {
         ScheduleActivity current = entries.get(entries.size() - 1).activity();
         for (Entry entry : entries) {

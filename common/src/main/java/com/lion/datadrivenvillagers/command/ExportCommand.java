@@ -110,8 +110,7 @@ public final class ExportCommand {
         included.add(new Included(path, true, "the profession itself, exactly as it is on disk"));
     }
 
-    /// A png next to the json travels with the zip; a resource pack texture and a missing texture are
-    /// only reported.
+    /// A png next to the json travels with the zip; a resource pack or missing texture is only reported.
     private static void texture(ZipOutputStream out, ProfessionDefinition definition, Path professions,
                                 List<Included> included) throws IOException {
         Optional<String> file = definition.textureFile();

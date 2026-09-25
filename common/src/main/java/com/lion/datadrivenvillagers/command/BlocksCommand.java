@@ -130,8 +130,7 @@ public final class BlocksCommand {
         return free;
     }
 
-    /// Uses the loader's own rule (one taken state makes the block unusable) so this never recommends
-    /// a block the loader rejects.
+    /// Uses the loader's rule that one taken state makes a block unusable, so this never recommends a rejected block.
     private static Optional<String> ownerOf(Identifier id) {
         Optional<Block> block = Registries.BLOCK.getOrEmpty(id);
         if (block.isEmpty()) {

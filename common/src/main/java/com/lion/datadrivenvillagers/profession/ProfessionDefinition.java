@@ -11,29 +11,6 @@ import java.util.Optional;
 /// {@link ProfessionLoader}. Fields marked "per villager" are looked up at runtime through the
 /// profession id, so they follow a reload and apply to overrides; the others are frozen into the
 /// `VillagerProfession`/`PointOfInterestType` record at registration.
-///
-/// @param id             derived from the file name, always in our namespace; also the texture path, see {@link #vanillaTextureId}
-/// @param overrides      an existing profession this file modifies instead of creating one, see {@link #target()}
-/// @param workstations   blocks that become the job site, at least one, empty when overriding
-/// @param addWorkstations blocks handed to the overridden profession's existing job site
-/// @param displayName    used when no language file translates the profession
-/// @param texture        explicit texture identifier, wins over {@link #textureFile}
-/// @param textureFile    png next to the json, loaded at runtime
-/// @param zombieTexture  the zombie villager's image, absent means {@link #texture}
-/// @param zombieTextureFile same, as a png next to the json
-/// @param hat            whether the villager type's hat underneath is drawn
-/// @param workSound      played while the villager works at the station
-/// @param gatherable     items the villager picks up
-/// @param secondarySites blocks the villager treats as secondary job sites
-/// @param gift           loot table thrown at a Hero of the Village, absent means vanilla decides
-/// @param schedule       day plan, absent means vanilla's. Per villager
-/// @param workBehaviour  see {@link WorkBehaviour}. Per villager
-/// @param fears          what it runs from on sight, on top of or instead of vanilla's list. Per villager
-/// @param attack         what it goes after and how hard it hits. Per villager, rebuilds the brain
-/// @param health         max health, absent means vanilla's 20. Per villager, set with the brain
-/// @param villages       villager types allowed to take this job, empty means any. Per villager
-/// @param ticketCount    how many villagers may claim one station
-/// @param searchDistance how far a villager looks for the station
 public record ProfessionDefinition(
         Identifier id,
         Optional<Identifier> overrides,
@@ -66,8 +43,7 @@ public record ProfessionDefinition(
         return id.getPath();
     }
 
-    /// The profession this file applies to: itself, or the overridden one. Runtime lookups (texture,
-    /// hat, gift) key on this.
+    /// Runtime lookups (texture, hat, gift) key on this, not on {@link #id}.
     public Identifier target() {
         return overrides.orElse(id);
     }
@@ -76,8 +52,7 @@ public record ProfessionDefinition(
         return overrides.isPresent();
     }
 
-    /// Built from {@link #id}, not {@link #target()}: an override's texture stays in our namespace
-    /// instead of shadowing the vanilla one a resource pack may write to.
+    /// Built from {@link #id}, not {@link #target()}, so an override's texture stays in our namespace.
     @Override
     public Identifier vanillaTextureId(String entityType) {
         return id.withPath(path -> "textures/entity/" + entityType + "/profession/" + path + ".png");

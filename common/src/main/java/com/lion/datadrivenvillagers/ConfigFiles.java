@@ -21,10 +21,7 @@ public final class ConfigFiles {
     private ConfigFiles() {
     }
 
-    /// One name, no path. Deliberately narrow rather than an allowlist of characters: a texture called
-    /// `my baker.png` is somebody's working pack and must keep working, while a separator, a colon and
-    /// the two dot names are the only things that can point somewhere else. `\` counts on every
-    /// platform, not only where it separates, so a pack behaves the same on Windows and on Linux.
+    /// `\` is blocked on every platform, not only where it separates, so packs behave the same everywhere.
     public static boolean isFileName(String raw) {
         if (raw.isEmpty() || raw.equals(".") || raw.equals("..")) {
             return false;
@@ -59,9 +56,7 @@ public final class ConfigFiles {
         return base.equals(file.getParent()) ? Optional.of(file) : Optional.empty();
     }
 
-    /// Writes into a temporary file beside the target and moves it over, so a crash mid-write leaves
-    /// the old file rather than half of the new one. The loaders read `.json` and `.nbt` only, so a
-    /// stranded `.tmp` is never mistaken for a definition.
+    /// Writes a sibling `.tmp` and moves it over; loaders ignore `.tmp`, so a crash keeps the old file.
     public static void writeAtomically(Path target, String content) throws IOException {
         Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
         Files.writeString(tmp, content, StandardCharsets.UTF_8);

@@ -10,11 +10,7 @@ import java.util.Optional;
 /// One parsed villager type file: the texture layer under the profession, chosen by the biome a
 /// villager is born in.
 ///
-/// @param id          registry id, derived from the file name
-/// @param texture     explicit texture identifier, wins over {@link #textureFile}
-/// @param textureFile png next to the json, loaded at runtime
-/// @param biomes      biomes claimed outright, they win over anything already mapped
-/// @param biomeTags   biome tags, filled in only where nothing is mapped yet
+/// `biomes` win over anything already mapped; `biomeTags` fill in only where nothing is mapped yet.
 public record TypeDefinition(
         Identifier id,
         Optional<Identifier> texture,

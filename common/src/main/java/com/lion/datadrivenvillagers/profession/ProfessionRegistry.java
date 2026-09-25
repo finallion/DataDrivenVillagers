@@ -28,10 +28,7 @@ public final class ProfessionRegistry {
     public record LoadError(String file, String reason) {
     }
 
-    /// Keyed by {@link ProfessionDefinition#target()}, so an override of `minecraft:farmer` is found
-    /// under the farmer's id.
-    ///
-    /// @param poi the job site, or null for an override of a profession without one
+    /// Keyed by {@link ProfessionDefinition#target()}, so an override is found under the vanilla id.
     public static void add(ProfessionDefinition definition, RegistryEntry<PointOfInterestType> poi) {
         definitions = CopyOnWrite.with(definitions, definition.target(), definition);
 
@@ -74,8 +71,7 @@ public final class ProfessionRegistry {
         return List.copyOf(definitions.values());
     }
 
-    /// For the tag hook, which puts these into `acquirable_job_site` after every datapack load; the
-    /// job site sensor only looks at tagged types.
+    /// For the tag hook, since the job site sensor only looks at types tagged `acquirable_job_site`.
     public static List<RegistryEntry<PointOfInterestType>> poiEntries() {
         return List.copyOf(poiEntries.values());
     }

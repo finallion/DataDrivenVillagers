@@ -24,8 +24,7 @@ public final class VillagerSchedules {
     private VillagerSchedules() {
     }
 
-    /// @param profession the profession a villager holds, for an override the vanilla id
-    /// @return the plan this profession asks for, absent when vanilla decides
+    /// `profession` is the vanilla id for an override; returns the plan it asks for, absent when vanilla decides.
     public static Optional<Schedule> of(Identifier profession) {
         if (generation != DataDrivenVillagers.generation()) {
             generation = DataDrivenVillagers.generation();

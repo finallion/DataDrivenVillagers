@@ -25,8 +25,7 @@ public final class PngHeader {
     private PngHeader() {
     }
 
-    /// @param head at least the first {@link #LENGTH} bytes of the file; more is fine
-    /// @return why the image must not be decoded, empty when it may
+    /// `head` must hold at least the first {@link #LENGTH} bytes; more is fine, empty means the image may be decoded.
     public static Optional<String> rejection(byte[] head) {
         if (head.length < LENGTH || !Arrays.equals(head, 0, 8, SIGNATURE, 0, 8)) {
             return Optional.of("not a png file");
@@ -46,10 +45,7 @@ public final class PngHeader {
         return Optional.empty();
     }
 
-    /// Reads only the header, so the size of the file does not matter. The one place that opens a png
-    /// for a verdict, so `/ddv why` and the sender cannot drift apart on what they call decodable.
-    ///
-    /// @return why the image must not be decoded, empty when it may
+    /// Reads only the header; the single verdict shared by `/ddv why` and the sender.
     public static Optional<String> rejection(Path png) throws IOException {
         try (InputStream in = Files.newInputStream(png)) {
             return rejection(in.readNBytes(LENGTH));

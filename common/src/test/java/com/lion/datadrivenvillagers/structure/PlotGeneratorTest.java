@@ -27,8 +27,7 @@ class PlotGeneratorTest {
         return owner.getList(key, NbtElement.INT_TYPE);
     }
 
-    /// -1 for anything missing: an absent key and an index past the end both read as 0, and 0 is a
-    /// value the assertions below expect.
+    /// -1 for missing: nbt reads an absent key or index as 0, and the assertions expect real zeros.
     private static int intOf(NbtCompound owner, String key) {
         return owner.contains(key, NbtElement.INT_TYPE) ? owner.getInt(key) : -1;
     }

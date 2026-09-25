@@ -11,8 +11,7 @@ final class ListParts {
         return text.substring(start(text, cursor), end(text, cursor)).trim();
     }
 
-    /// Whether the cursor stands in the last value, which is the only place vanilla draws a ghost
-    /// completion: after the final character of the box, wherever the cursor is.
+    /// Whether the cursor stands in the last value, the only place vanilla draws a ghost completion.
     static boolean atEnd(String text, int cursor) {
         return text.indexOf(',', clamp(text, cursor)) < 0;
     }

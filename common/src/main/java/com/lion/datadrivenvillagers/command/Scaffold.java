@@ -60,8 +60,7 @@ public final class Scaffold {
                 DataDrivenVillagers.id("gameplay/hero_of_the_village/" + definition.name() + "_gift"));
     }
 
-    /// Vanilla's key for a villager's name, `entity.minecraft.villager.<path>` regardless of namespace.
-    /// Built from the target so an override writes the overridden profession's key.
+    /// Vanilla's key is always `entity.minecraft.villager.<path>`, regardless of this mod's namespace.
     public static String translationKey(ProfessionDefinition definition) {
         return "entity.minecraft.villager." + definition.target().getPath();
     }
@@ -98,8 +97,7 @@ public final class Scaffold {
                 """.formatted(target, target);
     }
 
-    /// Vanilla's gift format, shaped like `gameplay/hero_of_the_village/farmer_gift.json`, seeded with
-    /// the first gatherable item.
+    /// Seeded with the first gatherable item; shaped like vanilla's `hero_of_the_village/farmer_gift.json`.
     private static String gift(ProfessionDefinition definition) {
         Identifier id = giftId(definition);
         String item = definition.gatherable().isEmpty()
@@ -126,8 +124,7 @@ public final class Scaffold {
                 """.formatted(id, item);
     }
 
-    /// Written even with a `display_name`: that is the fallback for a missing translation, this is the
-    /// translation.
+    /// Written even with `display_name` set: that is only the fallback for a missing translation, not a substitute.
     private static String lang(ProfessionDefinition definition) {
         String name = definition.displayName().orElseGet(() -> readable(definition.target().getPath()));
         return """
@@ -153,16 +150,12 @@ public final class Scaffold {
 
     public static final String STRUCTURE_SUFFIX = "_house";
 
-    /// The stall the mod would draw for this profession, as structure block nbt with the jigsaw blocks
-    /// already right, to load into a structure block and build over.
-    ///
-    /// @return empty for an override of a profession without a job site
+    /// Empty when an override's profession has no job site; otherwise the stall nbt, jigsaw blocks placed.
     public static Optional<NbtCompound> plot(ProfessionDefinition definition) {
         return plotBlock(definition).map(block -> PlotGenerator.plot(block, "plains"));
     }
 
-    /// The block under the roof: first workstation, else first added workstation, else the overridden
-    /// job site's first block.
+    /// The block under the roof: first workstation, else added workstation, else the overridden job site's block.
     public static Optional<Identifier> plotBlock(ProfessionDefinition definition) {
         if (!definition.workstations().isEmpty()) {
             return Optional.of(definition.workstations().get(0));
@@ -180,8 +173,7 @@ public final class Scaffold {
         return definition.name() + ".nbt";
     }
 
-    /// The structure json for the nbt, weight 2 like a mid-sized vanilla house. Suffixed because the
-    /// structure id is its file name and would otherwise collide in reading with the profession id.
+    /// Suffixed because the structure id is its file name and would else collide with the profession id.
     public static String structureJson(ProfessionDefinition definition) {
         return """
                 {
