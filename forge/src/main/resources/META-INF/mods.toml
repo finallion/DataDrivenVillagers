@@ -7,8 +7,11 @@ modId = "datadrivenvillagers"
 version = "${version}"
 displayName = "DataDrivenVillagers"
 authors = "Lion"
+logoFile = "assets/datadrivenvillagers/icon.png"
 description = '''
 Define villager professions in JSON: bind one to a workstation block, give it a texture, and let VillagerTradingPlus handle the trades.
+
+Support: https://www.patreon.com/cw/LithiumPlus
 '''
 
 # No [[mixins]] block: Forge reads mixin configs from the jar manifest, which forge/build.gradle
