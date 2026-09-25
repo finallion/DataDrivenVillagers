@@ -1,6 +1,7 @@
 package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.ConfigFiles;
+import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.ReloadOutcome;
 import com.lion.datadrivenvillagers.network.EditorOpenPayload;
@@ -99,6 +100,16 @@ public final class EditCommand {
 
     /// An unknown name is not an error here: editing a profession with no file yet is how a new one starts.
     private static int open(CommandContext<ServerCommandSource> context, String typed) {
+        try {
+            return openFile(context, typed);
+        } catch (RuntimeException | Error e) {
+            // Vanilla shows only the message in chat and logs the trace only in debug mode.
+            DataDrivenVillagers.LOGGER.error("/ddv edit {} failed", typed, e);
+            throw e;
+        }
+    }
+
+    private static int openFile(CommandContext<ServerCommandSource> context, String typed) {
         ServerCommandSource source = context.getSource();
         ServerPlayerEntity player = source.getPlayer();
         if (player == null) {
