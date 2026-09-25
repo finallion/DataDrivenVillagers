@@ -46,17 +46,14 @@ class ScheduleParserTest {
         assertEquals("10 idle, 2000 work, 9000 meet, 11000 idle, 12000 rest", plan.describe());
     }
 
-    /// The whole reason the feature exists, and the one claim `/ddv why` makes about a plan without a
-    /// villager to look at.
+    /// The whole reason this feature exists, and the only claim `/ddv why` makes without a villager to look at.
     @Test
     void theNightPresetWorksInTheDarkAndTheDefaultDoesNot() {
         assertTrue(present("{ \"schedule\": \"night\" }").worksAtNight());
         assertFalse(present("{ \"schedule\": \"default\" }").worksAtNight());
     }
 
-    /// The night plan is the vanilla one rotated by half a day, not a second set of numbers. Checked
-    /// against every tick of the day rather than against the five entries, because the interesting
-    /// part is the wrap around at midnight, which is where a rotation written by hand goes wrong.
+    /// The night plan is the vanilla one rotated by half a day.
     @Test
     void theNightPresetIsTheDefaultHalfADayLater() {
         for (int time = 0; time < ScheduleParser.DAY_LENGTH; time++) {
@@ -66,8 +63,7 @@ class ScheduleParserTest {
         }
     }
 
-    /// Before the first entry of the day the plan is still under the last one of the previous day,
-    /// which is what vanilla's own lookup does and the reason a plan needs no entry at tick 0.
+    /// Before today's first entry, the plan is still under yesterday's last one, matching vanilla's own lookup.
     @Test
     void theLastEntryOfTheDayCarriesIntoTheNext() {
         assertEquals(ScheduleActivity.REST, ScheduleParser.DEFAULT.activityAt(0));
@@ -98,9 +94,7 @@ class ScheduleParserTest {
         assertTrue(plan.worksAtNight());
     }
 
-    /// Sorted on the way in, so two files that say the same thing in a different order are the same
-    /// definition. A reload compares definitions to decide what to report, and order alone must not
-    /// make it claim a change.
+    /// Sorted on the way in, so entry order alone must not make a reload claim a change.
     @Test
     void sortsEntriesByTime() {
         ScheduleDefinition plan = present("""
@@ -151,9 +145,7 @@ class ScheduleParserTest {
         assertTrue(thrown.getMessage().contains("1000"), thrown.getMessage());
     }
 
-    /// A day is 24000 ticks. Wrapping 25000 into 1000 silently would be guessing at what an author
-    /// meant, and the guess is nearly always wrong: the number is usually a misunderstanding of the
-    /// clock rather than a deliberate second lap.
+    /// A day is 24000 ticks; wrapping an out-of-range time silently would guess at a likely clock misread.
     @Test
     void rejectsATimeOutsideTheDay() {
         assertThrows(DefinitionParseException.class,
@@ -162,8 +154,7 @@ class ScheduleParserTest {
                 () -> parse("{ \"schedule\": [ { \"time\": -1, \"activity\": \"work\" } ] }"));
     }
 
-    /// An activity a villager has no task list for leaves the brain with nothing to run, and a
-    /// villager standing still looks exactly like a broken mod. Rejected with the four that work.
+    /// An activity with no task list leaves nothing for the brain to run; a standing villager looks like a broken mod.
     @Test
     void rejectsAnActivityAVillagerCannotRunOnAClock() {
         DefinitionParseException thrown = assertThrows(DefinitionParseException.class,

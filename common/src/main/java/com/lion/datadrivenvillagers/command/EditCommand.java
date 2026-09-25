@@ -53,21 +53,14 @@ import java.util.stream.Stream;
 
 /// Opens the editor, and takes back what it sends.
 ///
-/// The command half is small on purpose. Everything a pack author can do here he could do by writing
-/// the file himself; the editor knows the field names and the allowed values, which is the part that
-/// costs a reload to find out otherwise. Nothing new becomes possible, the loop just gets shorter.
-///
-/// Both halves live here because they are the same conversation: what goes out at open is what comes
-/// back at save, and splitting them over two classes would let the two drift apart.
+/// The command half only opens what an author could edit by hand; the editor knows the field names
+/// and allowed values, saving a reload to find out. Both halves live here so what open sends and
+/// what save expects cannot drift apart.
 public final class EditCommand {
 
     private static final String EXTENSION = ".json";
 
-    /// Lower case only. A profession id is built by lower-casing the file
-    /// name, so `Test.json` becomes `datadrivenvillagers:test` - and then nothing lines up any more:
-    /// the reload reports `test.json`, the completion offers `test`, and on a case sensitive file
-    /// system a save under either spelling leaves two files that both want the same id. Holding the
-    /// file name to what the id will be is the only spelling that stays true everywhere.
+    /// A profession id is the lower-cased file name; a case sensitive disk could then save two files under one id.
     private static final Pattern FILE_NAME = Pattern.compile("[a-z0-9_-]{1,64}");
 
     /// Deliberately without a workstation.
@@ -104,9 +97,7 @@ public final class EditCommand {
         }
     }
 
-    /// An unknown name is not an error here, unlike everywhere else in this command tree: asking to
-    /// edit a baker in a folder that has none is how a new one is started, and refusing it would make
-    /// the author create an empty file by hand first.
+    /// An unknown name is not an error here: editing a profession with no file yet is how a new one starts.
     private static int open(CommandContext<ServerCommandSource> context, String typed) {
         ServerCommandSource source = context.getSource();
         ServerPlayerEntity player = source.getPlayer();
@@ -146,12 +137,7 @@ public final class EditCommand {
         return 1;
     }
 
-    /// What the running game holds for this file right now, asked before the author changes anything.
-    ///
-    /// Three states, and the middle one is the whole reason this exists: the file is on disk, it is
-    /// not broken, and there is still no profession - because one is only registered while the game
-    /// starts. Without this line an author edits a file for an hour and wonders why nothing he does
-    /// reaches a villager.
+    /// On disk, valid, but not yet a profession: registration happens only at startup.
     private static Note state(String name, boolean onDisk) {
         if (!onDisk) {
             return EditorResultPayload.warn("New file. It exists nowhere until you save, and the "
@@ -170,8 +156,7 @@ public final class EditCommand {
                         + "profession is only created while the game starts. Restart to bring it in."));
     }
 
-    /// Looks past the spelling, because a file written before the name was held to lower case is still
-    /// somebody's work. `Test.json` opens under `test` and is saved back under the name it already has.
+    /// A file saved before names were held to lower case still opens and saves under its own spelling.
     private static Optional<Path> find(String name) {
         Path exact = ProfessionLoader.directory().resolve(name + EXTENSION);
         if (Files.isRegularFile(exact)) {
@@ -185,11 +170,7 @@ public final class EditCommand {
         }
     }
 
-    /// Runs on the server thread, with everything the client sent treated as a suggestion.
-    ///
-    /// Order matters: parse first, write second. A file the loader would reject never reaches the
-    /// folder, so a failed save leaves the author exactly where he was instead of replacing a working
-    /// profession with a typo.
+    /// Parses before writing, so a file the loader would reject never replaces a working profession on disk.
     public static void save(ServerPlayerEntity player, EditorSavePayload payload) {
         if (!player.hasPermissionLevel(2)) {
             reply(player, false, List.of(EditorResultPayload.bad(
@@ -205,8 +186,7 @@ public final class EditCommand {
         }
 
         Path folder = ProfessionLoader.directory().toAbsolutePath().normalize();
-        // An existing file keeps the spelling it has on disk, so saving never leaves a second copy next
-        // to it on a file system that tells the two apart.
+        // An existing file keeps its on-disk spelling; saving never leaves a second copy on a case sensitive disk.
         Path file = find(name).map(found -> found.toAbsolutePath().normalize())
                 .orElseGet(() -> folder.resolve(name + EXTENSION).normalize());
         if (!file.getParent().equals(folder)) {
@@ -232,10 +212,7 @@ public final class EditCommand {
             return;
         }
 
-        // The parser knows nothing about blocks; the loader does, and until 2026-09-04 it was only
-        // asked after the file was on disk. A workstation this game does not have, or one another
-        // job site owns, is the rejection an author meets most, and it has to come before the write
-        // like every other one - or the file lies in the folder and complains at every start.
+        // The parser skips blocks; the loader must reject before the write, or a bad file fails at start.
         Optional<String> blocks = ProfessionLoader.workstationRejection(definition);
         if (blocks.isPresent()) {
             reply(player, false, List.of(EditorResultPayload.bad(blocks.get()),
@@ -246,8 +223,7 @@ public final class EditCommand {
         boolean existed = Files.isRegularFile(file);
         try {
             Files.createDirectories(folder);
-            // Through a temporary file: a crash mid-write would otherwise leave half a json behind,
-            // and the next start would reject what was a working profession.
+            // Through a temporary file, so a crash mid-write cannot leave a json that fails at the next start.
             ConfigFiles.writeAtomically(file, payload.json());
         } catch (IOException e) {
             reply(player, false, List.of(EditorResultPayload.bad(
@@ -257,8 +233,7 @@ public final class EditCommand {
 
         List<Note> notes = reload(player.getServer(), name, file.getFileName().toString(), existed);
         tradeCount(definition, notes);
-        // Judged by the reload, not by "the file was written": a save the reload rejected is not a
-        // save that went well, however true the green line on top of it is.
+        // Success is judged by the reload, not by the write: a save the reload rejects did not go well.
         reply(player, notes.stream().noneMatch(note -> note.level() == EditorResultPayload.Level.BAD), notes);
     }
 
@@ -278,12 +253,10 @@ public final class EditCommand {
         return trades == null ? 0 : trades.values().stream().mapToInt(factories -> factories.length).sum();
     }
 
-    /// The name of the world datapack the trades button writes into. One pack for all professions,
-    /// so a world that used the button five times has one entry in `/datapack list`, not five.
+    /// The world datapack the trades button writes into; one pack shared by every profession, not one per use.
     private static final String TRADES_PACK = "ddv_trades";
 
-    /// Writes the VillagerTradingPlus starting file for this profession into the world's own
-    /// datapacks.
+    /// Writes the VillagerTradingPlus starting file for this profession into the world's own datapacks.
     public static void trades(ServerPlayerEntity player, EditorTradesPayload payload) {
         if (!player.hasPermissionLevel(2)) {
             reply(player, false, List.of(EditorResultPayload.bad(
@@ -305,8 +278,7 @@ public final class EditCommand {
             return;
         }
 
-        // Built from the file on disk, not from anything the packet carried: the trades name the
-        // profession they are for, and that answer has to come from the same parser as everything else.
+        // Built from the file on disk, not the packet, so the trades name the same profession the parser would.
         ProfessionDefinition definition;
         try {
             definition = ProfessionParser.parse(name, JsonParser.parseString(
@@ -326,8 +298,7 @@ public final class EditCommand {
         // The piece knows its place inside a datapack; the pack folder stands in for "datapack/".
         Path target = pack.resolve(piece.destination().substring("datapack/".length())).normalize();
         if (!target.startsWith(datapacks)) {
-            // The pattern above already forbids everything that could step outside. The second lock is
-            // for the day the pattern is loosened without anyone remembering what it guarded.
+            // Redundant with the pattern above; guards against that pattern being loosened later.
             reply(player, false, List.of(EditorResultPayload.bad(
                     "That name does not stay inside the world's datapacks folder.")));
             return;
@@ -387,8 +358,7 @@ public final class EditCommand {
         boolean saidRestart = false;
         for (ReloadOutcome outcome : ProfessionLoader.reload(server)) {
             if (!outcome.file().equalsIgnoreCase(name + EXTENSION)) {
-                // Every other file is read again as well, but this screen is about one of them, and a
-                // wall of "unchanged" would bury the line the author is waiting for.
+                // Every file reloads, but this screen reports on one; a wall of "unchanged" lines would bury it.
                 continue;
             }
             spoken = true;
@@ -401,21 +371,17 @@ public final class EditCommand {
             });
         }
 
-        // Silence used to read as success. It cannot: a file the reload said nothing about is a file
-        // that changed nothing the running game can see.
+        // Silence is not success: a file the reload said nothing about changed nothing the running game can see.
         if (!spoken) {
             notes.add(EditorResultPayload.warn("The reload had nothing to say about this file."));
         }
 
-        // The plainest form of the same news, asked of the registry rather than guessed from the
-        // outcome - but only when the outcome has not already said it: two yellow restart lines in
-        // one answer were half of what pushed the report over its room on the screen.
+        // Asked of the registry only when the outcome has not said it, to avoid a second restart line on screen.
         if (!saidRestart && ProfessionRegistry.get(Identifier.of("datadrivenvillagers", name)).isEmpty()) {
             notes.add(EditorResultPayload.warn("Restart the game to create this profession."));
         }
 
-        // Still broadcast, no longer narrated: the line about it was the least important one on a
-        // screen that ran out of room for the most important.
+        // Broadcast without a chat line; it was the least important note on a screen short of room.
         LookSync.broadcast(server);
         return notes;
     }
@@ -423,8 +389,7 @@ public final class EditCommand {
     private static void reply(ServerPlayerEntity player, boolean ok, List<Note> notes) {
         Network.send(player, new EditorResultPayload(ok, notes));
         if (!ok) {
-            // Also in the chat, so the reason survives closing the screen. The first red line, which
-            // is not always the first line: a rejected reload sits under a green "Saved".
+            // Also sent to chat so the reason survives closing the screen; the first red line, not the first line.
             Note reason = notes.stream().filter(note -> note.level() == EditorResultPayload.Level.BAD)
                     .findFirst().orElse(notes.get(0));
             player.sendMessage(Text.literal(reason.text()).formatted(Formatting.RED), false);

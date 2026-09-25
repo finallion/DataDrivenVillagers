@@ -37,8 +37,7 @@ class TypeParserTest {
         assertTrue(definition.biomeTags().isEmpty());
     }
 
-    /// The # prefix is the only thing that separates the two, and getting it wrong would either map
-    /// nothing at all or map a tag id as if it were a biome.
+    /// Getting the `#` prefix wrong maps nothing at all, or maps a tag id as if it were a biome.
     @Test
     void separatesBiomeTagsFromBiomeIds() {
         TypeDefinition definition = parse("cold", """

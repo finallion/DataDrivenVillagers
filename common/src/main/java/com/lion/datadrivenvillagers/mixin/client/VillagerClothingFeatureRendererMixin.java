@@ -40,8 +40,7 @@ public abstract class VillagerClothingFeatureRendererMixin {
     @Final
     private String entityType;
 
-    /// Serves both layers: `type` is the biome clothing underneath, `profession` the job on top.
-    /// Vanilla builds the path as `textures/entity/<entity>/<layer>/<name>.png`.
+    /// Matches vanilla's `textures/entity/<entity>/<layer>/<name>.png` path for both layers.
     @Inject(method = "findTexture(Ljava/lang/String;Lnet/minecraft/util/Identifier;)Lnet/minecraft/util/Identifier;",
             at = @At("HEAD"), cancellable = true)
     private void datadrivenvillagers$overrideTexture(String layer, Identifier id,
@@ -79,16 +78,13 @@ public abstract class VillagerClothingFeatureRendererMixin {
         return RuntimeTextures.fromBytes(look.get(), entityType);
     }
 
-    /// The local folder answers before any sync, and for a synced definition without an image (a png
-    /// too large to send). Never for an id the server did not mention.
+    /// True for a synced definition with no image too, since a png too large to send leaves it absent.
     @Unique
     private static boolean datadrivenvillagers$folderMayAnswer(Optional<SyncedLooks.Look> look) {
         return look.isPresent() || !SyncedLooks.active();
     }
 
-    /// The id comes from the definition, not from vanilla's derivation: an override applies to
-    /// `minecraft:farmer` while its image lives in our namespace. An unreadable file falls through to
-    /// vanilla.
+    /// The id comes from the definition, not vanilla's derivation, so an override's image stays in our namespace.
     @Unique
     private Optional<Identifier> datadrivenvillagers$local(TexturedDefinition definition, Path folder) {
         Optional<Identifier> explicit = definition.textureFor(entityType);

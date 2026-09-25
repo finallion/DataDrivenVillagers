@@ -44,8 +44,7 @@ public final class StructureLoader {
     private static final String FOLDER = "structures";
     private static final String EXTENSION = ".json";
 
-    /// Appended elements per pool, so a reload can remove them. A pool holds one entry per point of
-    /// weight; the element is stored once and every copy removed.
+    /// Stored once per element, not once per weight point like a normal pool, so a reload can remove every copy.
     private static final Map<Identifier, List<StructurePoolElement>> INJECTED = new LinkedHashMap<>();
 
     private StructureLoader() {
@@ -55,8 +54,7 @@ public final class StructureLoader {
         return ConfigDirectory.getConfigDirectory().resolve(DataDrivenVillagers.MOD_ID).resolve(FOLDER);
     }
 
-    /// The nbt of a definition. Used by `/ddv why` and the template mixin alike. The parser holds the
-    /// name to a plain file name; this is the second lock on the same door.
+    /// Re-checks the same door the parser already locked: the file name must stay a plain file name.
     public static Path fileOf(StructureDefinition definition) {
         String name = definition.file().orElseThrow(() ->
                 new IllegalStateException(definition.id() + " is a generated plot and has no file"));
@@ -65,8 +63,7 @@ public final class StructureLoader {
                         + "\", which is not a file inside " + directory()));
     }
 
-    /// Reads the folder and appends every piece to this world's pools. Re-runnable: a previous run's
-    /// elements are removed first.
+    /// Re-runnable: a previous run's elements are removed before this one adds its own.
     public static List<ReloadOutcome> load(MinecraftServer server) {
         Map<Identifier, StructureDefinition> before = new LinkedHashMap<>();
         StructureRegistry.ordered().forEach(definition -> before.put(definition.id(), definition));
@@ -105,8 +102,7 @@ public final class StructureLoader {
         return outcomes(before);
     }
 
-    /// Structures reload whole: the nbt is read on demand and the pools are rebuilt per world, so no
-    /// outcome ever needs a restart.
+    /// Structures reload whole, rebuilt per world, so no outcome here ever needs a restart.
     private static List<ReloadOutcome> outcomes(Map<Identifier, StructureDefinition> before) {
         List<ReloadOutcome> outcomes = new ArrayList<>();
         for (StructureDefinition definition : StructureRegistry.ordered()) {
@@ -130,9 +126,7 @@ public final class StructureLoader {
         return outcomes;
     }
 
-    /// Appends to `StructurePool.elements` only. Vanilla reads that expanded list everywhere
-    /// (`getRandomElement`, `getElementIndicesInRandomOrder`, `getElementCount`, `getHighestY`);
-    /// the immutable `elementWeights` is used by the codec alone.
+    /// Appends to `StructurePool.elements` only; the immutable `elementCounts` is used just by the codec.
     private static int inject(StructureDefinition definition, Registry<StructurePool> pools,
                               Registry<StructureProcessorList> processors) {
         List<Identifier> missing = new ArrayList<>();
@@ -170,8 +164,7 @@ public final class StructureLoader {
     /// @return null when the named processor list does not exist in this world; the error is recorded
     private static StructurePoolElement element(StructureDefinition definition, Identifier templateId,
                                                 Registry<StructureProcessorList> processors) {
-        // Legacy single elements, like vanilla's houses: they ignore air, the modern element places it
-        // and carves a box out of the ground.
+        // Legacy single elements, like vanilla's houses, ignore air; the modern kind carves a box and places it.
         StructurePool.Projection projection = definition.ground() == GroundKind.RIGID
                 ? StructurePool.Projection.RIGID
                 : StructurePool.Projection.TERRAIN_MATCHING;
@@ -239,8 +232,7 @@ public final class StructureLoader {
                 throw new DefinitionParseException("\"structure\" names " + definition.file().get()
                         + ", which is not a file in " + directory());
             }
-            // The template reader silently turns an unknown block into air; the block registry is
-            // complete by now, so it is checked here.
+            // The template reader turns an unknown block into air silently; the block registry is complete by now.
             if (definition.generated() && !Registries.BLOCK.containsId(definition.workstation().get())) {
                 throw new DefinitionParseException("\"workstation\" names " + definition.workstation().get()
                         + ", which is not a block in this game");

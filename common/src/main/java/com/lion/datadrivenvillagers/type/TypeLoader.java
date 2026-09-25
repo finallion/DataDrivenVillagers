@@ -44,8 +44,7 @@ public final class TypeLoader {
 
     private static final List<TypeDefinition> PARSED = new ArrayList<>();
 
-    /// Who held a biome before we took it, recorded on the first claim and never overwritten, so a
-    /// reload can give the biome back instead of leaving it unmapped.
+    /// Who held a biome before we took it, recorded once on first claim, never overwritten by a later one.
     private static final Map<RegistryKey<Biome>, Optional<VillagerType>> DISPLACED =
             new HashMap<>();
 
@@ -92,8 +91,7 @@ public final class TypeLoader {
         }
     }
 
-    /// Registers the types and claims the biomes named outright. Tags come later through
-    /// {@link #claimTaggedBiomes}.
+    /// Registers the types and claims the biomes named outright; tags come later through `claimTaggedBiomes`.
     public static void registerTypes() {
         prepare();
         for (TypeDefinition definition : PARSED) {
@@ -126,8 +124,7 @@ public final class TypeLoader {
         }
     }
 
-    /// Records the displaced owner once, and only when it is not one of ours: a reload must restore
-    /// the original owner, not an earlier claim of our own.
+    /// Skips recording when the previous owner is one of ours, so a reload restores the true original.
     private static void remember(RegistryKey<Biome> biome, VillagerType previous) {
         if (previous != null && ours(previous)) {
             return;
@@ -145,8 +142,7 @@ public final class TypeLoader {
         return id != null && TypeRegistry.get(id).isPresent();
     }
 
-    /// Called per biome tag while tags are bound, again after every datapack load, so it is idempotent.
-    /// A tag only fills biomes nothing holds yet; `#minecraft:is_taiga` must not repaint vanilla's own.
+    /// Called again after every datapack load, so it must stay idempotent: fills only biomes nothing holds yet.
     public static void claimTaggedBiomes(Identifier tagId, List<Identifier> biomes) {
         for (TypeDefinition definition : TypeRegistry.withBiomeTags()) {
             if (!definition.biomeTags().contains(tagId)) {
@@ -174,10 +170,7 @@ public final class TypeLoader {
         }
     }
 
-    /// Reads every type file again. Only the registry entry is frozen, and `VillagerType` carries no
-    /// data, so texture and biomes both follow at once.
-    ///
-    /// @param biomes the world's biome registry, needed to resolve tag members
+    /// `VillagerType` itself carries no data, so unlike other registry entries, texture and biomes update live.
     public static List<ReloadOutcome> reload(Registry<Biome> biomes) {
         TypeRegistry.clearErrors();
         List<TypeDefinition> fresh = new ArrayList<>();
@@ -240,8 +233,7 @@ public final class TypeLoader {
         return String.join(", ", changed);
     }
 
-    /// Gives every biome we hold back to its previous owner. Collected first, then changed, because
-    /// this walks the map it edits.
+    /// Collected first, then changed, because this walks the very map it is about to edit.
     private static void releaseBiomes() {
         List<RegistryKey<Biome>> ours = new ArrayList<>();
         for (Map.Entry<RegistryKey<Biome>, VillagerType> entry : VillagerType.BIOME_TO_TYPE.entrySet()) {

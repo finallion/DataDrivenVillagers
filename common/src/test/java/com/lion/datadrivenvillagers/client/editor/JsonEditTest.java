@@ -47,8 +47,7 @@ class JsonEditTest {
         assertFalse(root.has("attacks"));
     }
 
-    /// One block reads back as one block, not as a list of one. An editor that turned every file it
-    /// opened into arrays would leave its fingerprints on files it only looked at.
+    /// A single value must round-trip as a bare string, not an array, or edits leave fingerprints on untouched files.
     @Test
     void oneIdStaysABareString() {
         JsonObject root = new JsonObject();
@@ -93,8 +92,7 @@ class JsonEditTest {
         assertEquals("0=rest, 12000=idle, 14000=work", JsonEdit.schedule(root, "schedule"));
     }
 
-    /// A count typed as 3 has to come back as 3. Gson reads every number as a double, and writing
-    /// 3.0 back would rewrite the file on every open and make `ticket_count` look like a fraction.
+    /// Gson reads every number as a double; writing 3.0 back would make `ticket_count` look like a fraction.
     @Test
     void wholeNumbersDoNotGrowADecimalPoint() {
         JsonObject root = parse("""
@@ -119,8 +117,7 @@ class JsonEditTest {
                 """), "flees_only_from"));
     }
 
-    /// Only the value being typed is completed, not the whole box. A list field would otherwise lose
-    /// everything before the comma the moment a suggestion is clicked.
+    /// A list field would otherwise lose everything before the comma the moment a suggestion is clicked.
     @Test
     void completionLooksAtTheLastValueOnly() {
         assertEquals("minecraft:calc", EditorFields.lastPart("minecraft:calc"));
@@ -128,8 +125,7 @@ class JsonEditTest {
         assertEquals("", EditorFields.lastPart("minecraft:calcite, "));
     }
 
-    /// The end of the road: whatever the editor assembles has to be a file the loader accepts, judged
-    /// by the same parser a hand-written one meets.
+    /// Whatever the editor assembles must pass the same parser a hand-written file would meet.
     @Test
     void whatItBuildsIsAFileTheParserTakes() {
         JsonObject root = new JsonObject();

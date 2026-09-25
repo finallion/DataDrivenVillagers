@@ -11,8 +11,7 @@ import java.util.Locale;
 public enum WorkBehaviour {
     /// Vanilla's routine for every non-farmer: go to the station, look busy, restock trades.
     STATION,
-    /// The farmer's routine on top. Needs farmland in `secondary_job_sites` (filled in by the parser
-    /// when absent) and seeds in `gatherable_items`.
+    /// Needs farmland in `secondary_job_sites` (parser adds it when absent) and seeds in `gatherable_items`.
     FARM;
 
     public String lower() {

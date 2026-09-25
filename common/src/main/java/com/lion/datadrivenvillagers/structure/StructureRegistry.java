@@ -38,8 +38,7 @@ public final class StructureRegistry {
         return Optional.ofNullable(definitions.get(id));
     }
 
-    /// The generated plot behind a template id like `bakery/desert`: definition `bakery`, materials
-    /// for `desert`. Empty for an author's nbt, which is served under the definition id itself.
+    /// Empty for an author's nbt, served under the definition id itself rather than `id/village`.
     public static Optional<GeneratedTemplate> generated(Identifier templateId) {
         String path = templateId.getPath();
         int slash = path.lastIndexOf('/');

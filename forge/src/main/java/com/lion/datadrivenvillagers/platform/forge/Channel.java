@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /// Forge has no registry of channel ids: one channel carries all six packets and the index is the
-/// packet id. Both sides register the same list in the same order — the server included, because the
+/// packet id. Both sides register the same list in the same order, the server included, because the
 /// encoder of a server-to-client packet lives there.
 ///
 /// The client-only calls sit in a nested lambda, which is created when the handler runs and therefore

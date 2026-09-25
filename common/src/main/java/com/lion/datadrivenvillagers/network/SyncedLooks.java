@@ -86,8 +86,7 @@ public final class SyncedLooks {
         generation++;
     }
 
-    /// Whether a server has sent looks since the last connect. While true, an id absent from both
-    /// maps has no definition on the server and vanilla is the right answer.
+    /// While true, an id absent from both maps has no definition on the server, so vanilla is right.
     public static boolean active() {
         return active;
     }

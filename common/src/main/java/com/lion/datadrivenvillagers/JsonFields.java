@@ -67,12 +67,7 @@ public final class JsonFields {
         static final TextureSource NONE = new TextureSource(Optional.empty(), Optional.empty());
     }
 
-    /// A bare file name is a png next to the json; a value with a colon or slash is a resource pack
-    /// identifier.
-    ///
-    /// The file name is held to {@link ConfigFiles#isFileName}: it is read from disk and sent to
-    /// every player, an operator can write one over the network through the editor, and on Windows a
-    /// backslash inside it is a path separator.
+    /// An operator can write this over the network, so the name is checked by {@link ConfigFiles#isFileName}.
     public static TextureSource texture(JsonObject root, String field) {
         Optional<String> raw = optionalString(root, field);
         if (raw.isEmpty()) {

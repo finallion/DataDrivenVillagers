@@ -22,8 +22,7 @@ public final class ScheduleParser {
 
     private static final int HALF_DAY = DAY_LENGTH / 2;
 
-    /// Vanilla's `Schedule.VILLAGER_DEFAULT` in 1.20.1. A preset so a reload can fall back to it
-    /// when `"schedule"` is removed from a file.
+    /// Vanilla's `Schedule.VILLAGER_DEFAULT` in 1.20.1, used as the fallback when `"schedule"` is removed.
     public static final ScheduleDefinition DEFAULT = new ScheduleDefinition("default", List.of(
             new ScheduleDefinition.Entry(10, ScheduleActivity.IDLE),
             new ScheduleDefinition.Entry(2000, ScheduleActivity.WORK),

@@ -36,18 +36,13 @@ public final class RuntimeTextures {
     /// Every id registered here, so leaving a world can hand the images back to the GPU.
     private static final Set<Identifier> REGISTERED = new HashSet<>();
 
-    /// Generations the cache was built for. Compared on the render thread; the reload on the server
-    /// thread never touches this map.
+    /// Compared only on the render thread; the server thread's reload never touches this field, so no lock is needed.
     private static int generation = -1;
     private static int syncedGeneration = -1;
 
     private RuntimeTextures() {}
 
-    /// A png beside the json, for one entity type.
-    ///
-    /// @param folder the definition kind's folder; the file name in the json is relative to it
-    /// @return the id for the renderer; empty when no file is named or it could not be read (caller
-    ///         falls through to vanilla)
+    /// Empty means no file was named or it could not be read; the caller then falls back to vanilla.
     public static Optional<Identifier> fromFile(TexturedDefinition definition, Path folder, String entityType) {
         Optional<String> file = definition.textureFileFor(entityType);
 
@@ -82,9 +77,7 @@ public final class RuntimeTextures {
         return ensure(id, () -> new ByteArrayInputStream(png.get()), "the image the server sent for " + look.definition()) ? Optional.of(id) : Optional.empty();
     }
 
-    /// Gives every image registered here back to the GPU and forgets what was tried. Called when the
-    /// client leaves a world, from whatever thread the loader fires that on; the work is queued to the
-    /// render thread, where the texture manager lives.
+    /// Queued to the render thread, since the texture manager only lives there.
     public static void destroyAll() {
         MinecraftClient client = MinecraftClient.getInstance();
         client.execute(() -> {
@@ -120,9 +113,7 @@ public final class RuntimeTextures {
 
     private static boolean register(Identifier id, Source source, String what) {
         try (InputStream in = new BufferedInputStream(source.open())) {
-            // The header first: the decoder allocates width times height before anyone can look, and
-            // a server is not trusted with the native heap. The same check refuses the client's own
-            // file, so a png that works alone works on a server too.
+            // Header first: server images are untrusted, and the decoder allocates width times height blindly.
             in.mark(PngHeader.LENGTH * 2);
             byte[] head = in.readNBytes(PngHeader.LENGTH);
             in.reset();

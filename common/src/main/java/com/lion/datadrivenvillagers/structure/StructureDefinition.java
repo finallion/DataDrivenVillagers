@@ -7,16 +7,6 @@ import java.util.Optional;
 
 /// One parsed structure file: an nbt beside the json, or a plot drawn around a workstation block, and
 /// the village pools it goes into.
-///
-/// @param id          registry id, derived from the file name
-/// @param file        the nbt beside the json, empty for a generated plot
-/// @param workstation the block a generated plot is built around, empty for an author's nbt
-/// @param weight      draws against the other pieces of the pool; vanilla houses sit between 1 and 3
-/// @param villages    village types, empty meaning all of them
-/// @param pool        houses, decor or streets
-/// @param pools       pool ids written out; replaces {@link #villages} and {@link #pool} when present
-/// @param ground      how the piece meets the terrain
-/// @param processors  optional processor list, e.g. `minecraft:mossify_10_percent`
 public record StructureDefinition(
         Identifier id,
         Optional<String> file,
@@ -47,8 +37,7 @@ public record StructureDefinition(
                 .toList();
     }
 
-    /// The template id the pool element points at: the definition id for an nbt, one id per village
-    /// type for a generated plot (`bakery/desert`), since the plot is drawn in that village's materials.
+    /// A generated plot gets one template id per village type, like `bakery/desert`; an nbt file gets one only.
     public Identifier templateId(Identifier poolId) {
         if (!generated()) {
             return id;

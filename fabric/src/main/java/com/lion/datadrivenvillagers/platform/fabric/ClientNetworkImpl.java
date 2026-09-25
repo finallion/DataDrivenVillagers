@@ -14,8 +14,7 @@ import net.minecraft.network.PacketByteBuf;
 
 public class ClientNetworkImpl {
 
-    /// Read on the netty thread, before the buffer is released. The work is queued onto the client
-    /// thread, which is the render thread, so {@link SyncedLooks} needs no lock.
+    /// Reads on the netty thread, then queues work onto the client (render) thread; `SyncedLooks` needs no lock.
     public static void register() {
         ClientPlayNetworking.registerGlobalReceiver(LooksBeginPayload.ID, (client, handler, buf, sender) -> {
             LooksBeginPayload payload = LooksBeginPayload.read(buf);

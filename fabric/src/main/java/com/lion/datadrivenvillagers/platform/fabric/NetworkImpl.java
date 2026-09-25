@@ -12,8 +12,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 
 public class NetworkImpl {
 
-    /// Fabric calls the handler on the netty thread: the payload is read there, before the buffer is
-    /// released, and only the work is queued onto the server thread. Both payloads are untrusted.
+    /// Reads the payload on the netty thread before release, then queues the untrusted work onto the server thread.
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(EditorSavePayload.ID, (server, player, handler, buf, sender) -> {
             EditorSavePayload payload = EditorSavePayload.read(buf);
@@ -25,8 +24,7 @@ public class NetworkImpl {
         });
     }
 
-    /// Fabric lets a client without this mod join; a packet on a channel it never registered drops
-    /// the connection.
+    /// Fabric lets a client without this mod join; a packet on a channel it never registered drops the connection.
     public static void send(ServerPlayerEntity player, Payload payload) {
         if (!ServerPlayNetworking.canSend(player, payload.id())) {
             return;

@@ -11,8 +11,7 @@ public class NetworkImpl {
         Channel.register();
     }
 
-    /// No check for the receiving side: Forge refuses a client that does not carry this mod, so
-    /// everyone who is connected knows the channel.
+    /// No check for the receiving side: Forge refuses a client that does not carry this mod to connect.
     public static void send(ServerPlayerEntity player, Payload payload) {
         Channel.INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), payload);
     }

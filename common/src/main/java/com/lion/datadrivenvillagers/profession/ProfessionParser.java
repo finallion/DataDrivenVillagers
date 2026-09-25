@@ -14,8 +14,7 @@ import java.util.Optional;
 /// unit testable without booting Minecraft.
 public final class ProfessionParser {
 
-    /// Public for the editor's placeholders and for the loader, which compares against them to tell a
-    /// set value from a defaulted one.
+    /// Public for the editor's placeholders and the loader, to tell a set value from a defaulted one.
     public static final int DEFAULT_TICKET_COUNT = 1;
     public static final int DEFAULT_SEARCH_DISTANCE = 1;
 
@@ -52,12 +51,10 @@ public final class ProfessionParser {
         Optional<Identifier> workSound =
                 JsonFields.optionalString(root, "work_sound").map(JsonFields::identifier);
 
-        // Absent means vanilla's unemployed gift; a derived path would log a miss for every profession
-        // without a loot table.
+        // Absent means vanilla's unemployed gift; a derived path would log a miss for every profession without one.
         Optional<Identifier> gift = JsonFields.optionalString(root, "gift").map(JsonFields::identifier);
 
-        // Schedule and the per-villager fields below are looked up by profession id at runtime, so an
-        // override reads them too.
+        // Schedule and the fields below are looked up by profession id at runtime, so an override reads them too.
         Optional<ScheduleDefinition> schedule = ScheduleParser.parse(root, "schedule");
 
         JsonFields.TextureSource texture = JsonFields.texture(root, "texture");
@@ -75,8 +72,7 @@ public final class ProfessionParser {
         List<Identifier> secondarySites = JsonFields.identifiers(root, "secondary_job_sites", false);
         if (workBehaviour == WorkBehaviour.FARM && overrides.isPresent()
                 && !overrides.get().equals(new Identifier("farmer"))) {
-            // The farm task needs farmland in SECONDARY_JOB_SITE, and the secondary sites of the
-            // overridden profession are frozen in its record.
+            // The farm task needs farmland in SECONDARY_JOB_SITE; an override's target has that frozen.
             throw new DefinitionParseException("\"work_behaviour\": \"farm\" cannot be given to an override: "
                     + overrides.get() + " does not know farmland as a secondary job site, and that list "
                     + "was handed to vanilla once at registration. Create a profession of your own instead.");
@@ -116,8 +112,7 @@ public final class ProfessionParser {
                 JsonFields.positiveInt(root, "search_distance", DEFAULT_SEARCH_DISTANCE));
     }
 
-    /// `minecraft:farmer`'s values in 1.20.1 (`VillagerProfession.register`): four
-    /// items, not the six newer versions have.
+    /// `minecraft:farmer`'s 1.20.1 values (`VillagerProfession.register`): four items, not the six newer versions have.
     public static final List<Identifier> FARM_GATHERABLE = List.of(
             new Identifier("wheat"), new Identifier("wheat_seeds"),
             new Identifier("beetroot_seeds"), new Identifier("bone_meal"));

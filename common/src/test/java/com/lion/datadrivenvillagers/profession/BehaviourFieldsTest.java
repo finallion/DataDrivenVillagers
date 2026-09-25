@@ -193,8 +193,7 @@ class BehaviourFieldsTest {
                 ProfessionLoader.behaviourFields(busy));
     }
 
-    /// `flees_from` and `flees_only_from` are two fields with one meaning each, and the verdict has
-    /// to name the one the author wrote or they will search the wrong line.
+    /// The verdict must name the field the author actually wrote, `flees_from` or `flees_only_from`.
     @Test
     void behaviourFieldsTellsTheTwoFearListsApart() {
         ProfessionDefinition adds = parse("adds", """

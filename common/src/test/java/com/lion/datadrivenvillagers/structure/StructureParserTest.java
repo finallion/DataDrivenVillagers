@@ -62,8 +62,7 @@ class StructureParserTest {
                 definition.targetPools().stream().map(Object::toString).toList());
     }
 
-    /// One field, one meaning, the same rule "workstation" and "add_workstations" already follow. Both
-    /// forms at once would make the file say two things about where the building goes.
+    /// Both forms at once would make the file say two things about where the building goes.
     @Test
     void rejectsTheShorthandAndTheLongFormTogether() {
         DefinitionParseException e = assertThrows(DefinitionParseException.class, () -> parse("both", """
@@ -72,8 +71,7 @@ class StructureParserTest {
         assertTrue(e.getMessage().contains("pools"));
     }
 
-    /// A name without the extension is far more likely to be an identifier the author expected us to
-    /// resolve in a datapack, so it is rejected rather than quietly completed.
+    /// A name without the extension is more likely an identifier the author expected to resolve elsewhere.
     @Test
     void rejectsAStructureThatIsNotAFileName() {
         assertThrows(DefinitionParseException.class, () -> parse("x", """
@@ -152,8 +150,7 @@ class StructureParserTest {
         assertEquals("minecraft:mossify_10_percent", definition.processors().orElseThrow().toString());
     }
 
-    /// Same rule as a texture: the nbt sits beside the json, so the name may not be a path. On Windows
-    /// a backslash separates, and this one is read straight into a structure template.
+    /// Same rule as a texture; this nbt is read straight into a structure template with no other check.
     @Test
     void rejectsAnNbtThatLeavesTheFolder() {
         // Doubled, because that is how a backslash is written inside json; the parsed value holds one.

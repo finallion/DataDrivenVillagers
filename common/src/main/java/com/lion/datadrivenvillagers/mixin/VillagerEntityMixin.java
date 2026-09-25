@@ -47,8 +47,7 @@ public abstract class VillagerEntityMixin {
             attribute.setBaseValue(damage);
         }
 
-        // Always set, so a villager leaving a high-health job drops back to 20. A villager at full
-        // health stays at full health after the change; one above the new maximum is clamped.
+        // Always set: a villager leaving a high-health job must drop back to vanilla's default 20.
         double maxHealth = ProfessionBehaviours.of(villager).flatMap(ProfessionDefinition::health)
                 .orElse(ProfessionDefinition.VANILLA_HEALTH);
         EntityAttributeInstance health = villager.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);

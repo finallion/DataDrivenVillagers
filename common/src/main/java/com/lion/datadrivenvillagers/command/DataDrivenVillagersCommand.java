@@ -106,8 +106,7 @@ public final class DataDrivenVillagersCommand {
                 + StructureRegistry.ordered().size();
     }
 
-    /// Only shown when a file asked for one, because "vanilla plan" is what every villager that ever
-    /// existed has and printing it on every line would say nothing.
+    /// Only shown when a file asked for one; every villager already has a "vanilla plan" by default.
     private static Text scheduleNote(ProfessionDefinition definition) {
         return definition.schedule()
                 .map(plan -> Text.literal("  schedule: " + plan.name()).formatted(Formatting.GRAY))
@@ -121,9 +120,7 @@ public final class DataDrivenVillagersCommand {
         return definition.textureFile().orElse("vanilla lookup");
     }
 
-    /// Read straight from the vanilla trade map, so this reports the truth no matter whether the
-    /// trades came from VillagerTradingPlus, another mod or nowhere. Keeps this mod free of any
-    /// build time dependency on VTP. Shared with {@link WhyCommand}, which reports the same line.
+    /// Read straight from the vanilla trade map, so this mod carries no build time dependency on VTP.
     static Text tradeStatus(ProfessionDefinition definition) {
         RegistryKey<VillagerProfession> key = RegistryKey.of(RegistryKeys.VILLAGER_PROFESSION, definition.id());
         Int2ObjectMap<TradeOffers.Factory[]> trades = TradeOffers.PROFESSION_TO_LEVELED_TRADE.get(key);
@@ -134,8 +131,7 @@ public final class DataDrivenVillagersCommand {
         return Text.literal("  " + total + " trade(s) over " + trades.size() + " tier(s)").formatted(Formatting.AQUA);
     }
 
-    /// All three folders, because the reader of this command has one config folder and does not think
-    /// of it as three. Reporting only professions here quietly hid every rejected villager type.
+    /// All three folders: the reader of this command has one config folder, not three.
     private static int errors(CommandContext<ServerCommandSource> context) {
         ServerCommandSource source = context.getSource();
 

@@ -71,8 +71,7 @@ public final class ProfessionLoader {
         registerPointsOfInterest();
     }
 
-    /// Parse and build without touching a registry. Idempotent and called from both registration
-    /// steps: Forge fires RegisterEvent for villager professions before points of interest.
+    /// Idempotent: both Forge RegisterEvents call it, professions first, then points of interest.
     public static void prepare() {
         if (prepared) {
             return;
@@ -109,8 +108,7 @@ public final class ProfessionLoader {
         }
     }
 
-    // Phase 2: needs a complete block registry. Builds the instances, registers nothing, drops
-    // definitions whose workstation does not exist or is already a job site.
+    // Phase 2: needs a complete block registry; drops definitions with a missing or claimed workstation.
     private static void buildPointsOfInterest() {
         Iterator<ProfessionDefinition> iterator = PARSED.iterator();
         while (iterator.hasNext()) {
@@ -128,8 +126,7 @@ public final class ProfessionLoader {
         }
     }
 
-    // Phase 3a. Needs only the point of interest instance, not its registration: the workstation
-    // predicate compares by identity.
+    // Phase 3a. Needs only the instance, not its registration: the predicate compares by identity.
     public static void registerProfessions() {
         prepare();
         for (ProfessionDefinition definition : PARSED) {
@@ -148,8 +145,7 @@ public final class ProfessionLoader {
         }
     }
 
-    // Phase 3b. Registers the points of interest, then fills POI_STATES_TO_TYPE (needs a registry
-    // entry). A definition counts as loaded from here on, for the tag hook and the client.
+    // Phase 3b. Registers the point of interest, then fills POI_STATES_TO_TYPE, which needs the registry entry.
     public static void registerPointsOfInterest() {
         prepare();
         for (ProfessionDefinition definition : PARSED) {
@@ -170,8 +166,7 @@ public final class ProfessionLoader {
                 RegistryHelper.registerPointOfInterestType(definition.id(), poi);
                 RegistryEntry<PointOfInterestType> entry = Registries.POINT_OF_INTEREST_TYPE.getEntry(poi);
 
-                // Vanilla fills POI_STATES_TO_TYPE in static init, before any mod POI exists, and the
-                // job site sensor reads that map, not the registry.
+                // Vanilla fills this map in static init before mod POIs exist; the sensor reads it, not the registry.
                 for (BlockState state : poi.blockStates()) {
                     JobSiteStates.put(state, entry);
                 }
@@ -186,10 +181,7 @@ public final class ProfessionLoader {
                 ProfessionRegistry.definitions().size(), directory(), ProfessionRegistry.errors().size());
     }
 
-    /// Reads every file again and applies what the game still allows. Texture, hat, gift and
-    /// workstation blocks are looked up through this mod on every use and follow at once. Display
-    /// name, work sound, gathered items, ticket count and search distance sit in frozen vanilla
-    /// records and need a restart; the report says so per file.
+    /// Rereads every file; fields baked into vanilla's frozen record need a restart to apply.
     public static List<ReloadOutcome> reload(MinecraftServer server) {
         ProfessionRegistry.clearErrors();
         List<ProfessionDefinition> fresh = new ArrayList<>();
@@ -262,8 +254,7 @@ public final class ProfessionLoader {
         return outcomes;
     }
 
-    /// Definitions whose file was rejected in this reload, keyed like `previous`. Matched by file name:
-    /// a file that no longer parses has no id. Package-private for the test.
+    /// Rejected files, keyed like `previous`; matched by name since a failed parse has no id.
     static Map<Identifier, ProfessionDefinition> keptDespiteRejection(
             Map<Identifier, ProfessionDefinition> previous, List<ProfessionRegistry.LoadError> errors) {
         Set<String> rejectedFiles = new LinkedHashSet<>();
@@ -289,8 +280,7 @@ public final class ProfessionLoader {
         return error.reason();
     }
 
-    /// Startup's block check for a profession the reload sees for the first time. The instance built
-    /// here is thrown away; registration builds its own after the restart.
+    /// Startup's block check for a profession the reload sees for the first time; the instance built here is discarded.
     private static boolean workstationsUsable(String file, ProfessionDefinition definition) {
         try {
             createPointOfInterest(definition);
@@ -301,8 +291,7 @@ public final class ProfessionLoader {
         }
     }
 
-    /// Whether a definition changes what `initBrain` builds: plan, work routine, attack, health.
-    /// `flees_from` and `villages` are asked every tick and need no rebuild.
+    /// Whether a definition changes what `initBrain` builds; `flees_from`/`villages` need no rebuild, asked every tick.
     private static boolean needsBrain(ProfessionDefinition definition) {
         return definition.schedule().isPresent() || definition.workBehaviour() != WorkBehaviour.STATION
                 || definition.attack().isPresent() || definition.health().isPresent();
@@ -313,8 +302,7 @@ public final class ProfessionLoader {
                 || !old.attack().equals(next.attack()) || !old.health().equals(next.health());
     }
 
-    /// @return false when rejected; the reason is then already in the error list and the caller must
-    ///         not add an outcome of its own
+    /// Returns false when rejected; the reason is already in the error list, so the caller adds no outcome of its own.
     private static boolean applyNewOverride(String file, ProfessionDefinition definition) {
         try {
             applyOverride(definition);
@@ -338,8 +326,7 @@ public final class ProfessionLoader {
         return String.join(", ", said);
     }
 
-    /// Rebuilds the brains of loaded villagers of these professions via vanilla's `reinitializeBrain`
-    /// (the same path a job change takes). Collected first, not rebuilt while iterating the world's entities.
+    /// Collected first, not rebuilt while iterating entities; rebuilds via vanilla's `reinitializeBrain`.
     private static int rebrief(MinecraftServer server, Set<Identifier> professions) {
         int touched = 0;
         for (ServerWorld world : server.getWorlds()) {
@@ -415,8 +402,7 @@ public final class ProfessionLoader {
                 + "restart for " + String.join(", ", frozen));
     }
 
-    /// A registered point of interest's `blockStates()` is frozen; what the job site sensor reads is
-    /// the mutable POI_STATES_TO_TYPE map, so blocks are moved there.
+    /// `blockStates()` is frozen once registered; the sensor reads the mutable POI_STATES_TO_TYPE map.
     private static String moveWorkstations(ProfessionDefinition old, ProfessionDefinition next) {
         List<Identifier> before = old.isOverride() ? old.addWorkstations() : old.workstations();
         List<Identifier> after = next.isOverride() ? next.addWorkstations() : next.workstations();
@@ -539,9 +525,7 @@ public final class ProfessionLoader {
         return changed;
     }
 
-    /// Registers the definition under the target id; texture, hat and gift are looked up by id, so
-    /// nothing is re-registered. Extra blocks only need new POI_STATES_TO_TYPE entries, because
-    /// vanilla's predicate asks `holder.is(poiKey)`.
+    /// Extra blocks only need new POI_STATES_TO_TYPE entries, since vanilla's predicate asks `holder.is(poiKey)`.
     private static void applyOverride(ProfessionDefinition definition) {
         Identifier target = definition.target();
         VillagerProfession profession = Registries.VILLAGER_PROFESSION.getOrEmpty(target)
@@ -569,8 +553,7 @@ public final class ProfessionLoader {
         warnIfIgnored(definition);
     }
 
-    /// The six fields only read while creating a profession or job site, which an override never
-    /// does. One list, shared by the startup log, the reload report and `/ddv why`.
+    /// Fields only read while creating a profession or job site, which an override never does.
     public static List<String> ignoredFields(ProfessionDefinition definition) {
         if (!definition.isOverride()) {
             return List.of();
@@ -598,8 +581,7 @@ public final class ProfessionLoader {
         return ignored;
     }
 
-    /// The fields an override does read: asked per villager, not baked into the profession record.
-    /// Counterpart of {@link #ignoredFields}; every field belongs in exactly one of the two.
+    /// Fields an override reads, asked per villager; with {@link #ignoredFields} every field is in exactly one list.
     public static List<String> behaviourFields(ProfessionDefinition definition) {
         List<String> applied = new ArrayList<>();
         if (definition.schedule().isPresent()) {
@@ -633,8 +615,7 @@ public final class ProfessionLoader {
         }
     }
 
-    /// Asks the profession's predicate instead of matching names: another mod need not name the job
-    /// site after the profession. Shared with `/ddv why`.
+    /// Asks the profession's predicate, not names, since another mod need not name its job site after it.
     public static Optional<RegistryEntry<PointOfInterestType>> jobSiteOf(VillagerProfession profession) {
         return Registries.POINT_OF_INTEREST_TYPE.streamEntries()
                 .filter(entry -> profession.acquirableWorkstation().test(entry))
@@ -642,8 +623,7 @@ public final class ProfessionLoader {
                 .findFirst();
     }
 
-    /// @return the point of interest id as text, `?` for an entry without a key, which the reports
-    ///         print rather than throw on
+    /// Returns `?` for an entry without a key, so the reports print it instead of throwing.
     public static String idOf(RegistryEntry<PointOfInterestType> poi) {
         return poi.getKey().map(key -> key.getValue().toString()).orElse("?");
     }
@@ -701,8 +681,7 @@ public final class ProfessionLoader {
         }
     }
 
-    /// Without a texture vanilla derives an id from the profession id and renders the missing texture.
-    /// A warning, not a rejection, and only after registration so a rejected file gets no warning on top.
+    /// Without a texture vanilla derives an id from the profession id and shows the missing texture.
     private static void warnIfTextureless(ProfessionDefinition definition) {
         // An override keeps the texture of the profession it modifies.
         if (definition.isOverride()) {
@@ -759,9 +738,7 @@ public final class ProfessionLoader {
         return new PointOfInterestType(Set.copyOf(states), definition.ticketCount(), definition.searchDistance());
     }
 
-    /// A block state belongs to exactly one point of interest type. Forge aborts registration on a
-    /// second claim, Fabric lets the last writer win; this check makes both reject up front. Shared
-    /// with `/ddv blocks`, so "free" means the same thing there.
+    /// Rejects a state another point of interest type holds; Forge would abort, Fabric would overwrite.
     public static Optional<String> existingOwner(Set<BlockState> states) {
         for (BlockState state : states) {
             RegistryEntry<PointOfInterestType> existing = JobSiteStates.get(state);
@@ -774,9 +751,7 @@ public final class ProfessionLoader {
         return Optional.empty();
     }
 
-    /// The block rejection {@link #createPointOfInterest} would give, for the editor to ask before
-    /// writing the file. A block this profession already owns counts as usable. Empty for an override:
-    /// blocks it cannot add are only warned about.
+    /// {@link #createPointOfInterest}'s rejection; a block this profession already owns still counts as usable.
     public static Optional<String> workstationRejection(ProfessionDefinition definition) {
         if (definition.isOverride()) {
             return Optional.empty();
@@ -827,11 +802,7 @@ public final class ProfessionLoader {
                 workSound(definition));
     }
 
-    /// The profession carries no text of its own; vanilla derives the key from the registry id as
-    /// `entity.minecraft.villager.<path>`, regardless of namespace. `display_name` is the fallback
-    /// when no language file provides that key, and is served through the name hook.
-    ///
-    /// @return empty for a profession without `display_name`, which needs no fallback
+    /// Vanilla builds the key as `entity.minecraft.villager.<path>` regardless of namespace.
     public static Optional<Text> displayName(Identifier profession) {
         return ProfessionRegistry.get(profession)
                 .flatMap(ProfessionDefinition::displayName)

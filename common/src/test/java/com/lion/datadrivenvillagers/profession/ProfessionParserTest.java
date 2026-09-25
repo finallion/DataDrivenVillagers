@@ -67,8 +67,7 @@ class ProfessionParserTest {
         assertTrue(definition.textureFile().isEmpty());
     }
 
-    /// A bare file name is a png next to the json, anything with a colon or slash is a resource pack
-    /// identifier. Getting this split wrong would silently show the wrong texture.
+    /// Getting the file-vs-identifier split wrong would silently show the wrong texture.
     @Test
     void separatesTextureFileFromTextureIdentifier() {
         assertEquals("baker.png", parse("a", """
@@ -141,8 +140,7 @@ class ProfessionParserTest {
                 definition.gift().orElseThrow().toString());
     }
 
-    /// Absent rather than derived from the id: vanilla then keeps handing out the unemployed gift
-    /// instead of missing a loot table nobody wrote.
+    /// Absent rather than derived from the id, so vanilla keeps giving the unemployed gift instead.
     @Test
     void leavesTheGiftAbsentWhenUnset() {
         assertTrue(parse("baker", """
@@ -150,9 +148,7 @@ class ProfessionParserTest {
                 """).gift().isEmpty());
     }
 
-    /// An override keeps its own identity for the texture and points at somebody else's profession
-    /// for everything the game asks about. Mixing those two up would either serve the wrong image or
-    /// shadow a vanilla texture a resource pack is also writing to.
+    /// An override keeps its own id for the texture but points at another profession for everything else.
     @Test
     void anOverrideKeepsItsOwnIdButTargetsAnother() {
         ProfessionDefinition definition = parse("my_farmer", """
@@ -173,8 +169,7 @@ class ProfessionParserTest {
                 """).workstations().isEmpty());
     }
 
-    /// The two words mean different things and must never be interchangeable: one creates a job site,
-    /// the other hands blocks to one that exists.
+    /// `workstation` creates a job site; `add_workstations` only hands blocks to one that already exists.
     @Test
     void rejectsWorkstationTogetherWithOverrides() {
         DefinitionParseException e = assertThrows(DefinitionParseException.class, () -> parse("x", """
@@ -198,9 +193,7 @@ class ProfessionParserTest {
         assertEquals(1, definition.addWorkstations().size());
     }
 
-    /// The example is the first thing every user sees, so it has to parse and it has to name a
-    /// texture. It shipped without one, which meant the first villager anybody ever saw wore the
-    /// missing texture while the readme beside it explained how textures work.
+    /// The shipped example is the first thing every user sees, so it must parse and name a texture.
     @Test
     void theShippedExampleParsesAndNamesATextureFile() {
         ProfessionDefinition definition = parse("example_baker", ExampleProfession.EXAMPLE);
@@ -211,10 +204,7 @@ class ProfessionParserTest {
                 "a bare file name must not be read as a resource pack identifier");
     }
 
-    /// The file is read from disk and sent to every player who joins, and an operator can write this
-    /// field over the network through the editor. On Windows a backslash in it is a path separator,
-    /// so `..` backslash `..` leaves the professions folder; refused on every platform so a pack
-    /// behaves the same everywhere.
+    /// `\` is a path separator only on Windows, but this refuses it on every platform, not just there.
     @Test
     void rejectsATextureThatLeavesTheFolder() {
         // Doubled, because that is how a backslash is written inside json; the parsed value holds one.

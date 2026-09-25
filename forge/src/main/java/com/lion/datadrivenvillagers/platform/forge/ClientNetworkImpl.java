@@ -4,8 +4,7 @@ import com.lion.datadrivenvillagers.network.Payload;
 
 public class ClientNetworkImpl {
 
-    /// Nothing left to do: the six packets need the same indices on both sides, so
-    /// {@link NetworkImpl#register()} builds the channel for the client as well.
+    /// The six packets share indices, so {@link NetworkImpl#register()} already builds the channel for both sides.
     public static void register() {
     }
 

@@ -97,8 +97,7 @@ public final class ScaffoldCommand {
         return written;
     }
 
-    /// The stall as nbt plus the json that places it. Binary, so not a {@link Scaffold.Piece}; same
-    /// rule: never overwritten, reported either way.
+    /// The stall as nbt plus the json that places it; binary, so not a {@link Scaffold.Piece}.
     private static int building(ServerCommandSource source, ProfessionDefinition definition, Path folder) {
         Optional<NbtCompound> plot = Scaffold.plot(definition);
         if (plot.isEmpty()) {
@@ -146,8 +145,7 @@ public final class ScaffoldCommand {
                 .append(Text.literal("  -> " + destination).formatted(Formatting.GRAY)), false);
     }
 
-    /// By file name first, then by target id: an override is registered under the vanilla id, and its
-    /// file name is what `/ddv list` shows.
+    /// By file name first, then target id: an override registers under the vanilla id, not its file name.
     static Optional<ProfessionDefinition> find(String name) {
         List<ProfessionDefinition> loaded = ProfessionRegistry.ordered();
         return loaded.stream().filter(definition -> definition.name().equalsIgnoreCase(name)).findFirst()
