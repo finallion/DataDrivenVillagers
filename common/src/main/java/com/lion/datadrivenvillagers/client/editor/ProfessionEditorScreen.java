@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -753,16 +752,18 @@ public final class ProfessionEditorScreen extends Screen {
             if (!inRowArea(mouseY) || !overlaps(y - 6) || !row.under(mouseX, mouseY, y)) {
                 continue;
             }
-            List<Text> help = new ArrayList<>();
+            // Wrapped to the room right of the cursor, where vanilla places a tooltip first.
+            int wrap = Math.max(120, width - mouseX - 24);
+            List<OrderedText> help = new ArrayList<>();
             String problem = problems.get(row.label());
             if (problem != null) {
-                help.add(Text.literal(problem));
-                help.add(Text.empty());
+                help.addAll(textRenderer.wrapLines(Text.literal(problem), wrap));
+                help.add(OrderedText.EMPTY);
             }
             for (String line : row.help().split("\n")) {
-                help.add(Text.literal(line));
+                help.addAll(line.isEmpty() ? List.of(OrderedText.EMPTY) : textRenderer.wrapLines(Text.literal(line), wrap));
             }
-            context.drawTooltip(textRenderer, help, Optional.empty(), mouseX, mouseY);
+            context.drawOrderedTooltip(textRenderer, help, mouseX, mouseY);
             return;
         }
     }
