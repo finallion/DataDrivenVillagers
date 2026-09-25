@@ -49,6 +49,8 @@ public final class ProfessionEditorScreen extends Screen {
     private static final int MAX_CONTENT = 400;
     private static final int LABEL_WIDTH = 148;
     private static final int ROW_HEIGHT = 20;
+    private static final int ROW_STEP = ROW_HEIGHT + 4;
+    private static final int ROWS_TOP = 70;
     private static final int SUGGESTION_HEIGHT = 12;
     private static final int ESCAPE = 256;
     /// How many wrapped report lines get room; overflow is cut by the scissor in render, never painted over rows.
@@ -96,11 +98,14 @@ public final class ProfessionEditorScreen extends Screen {
     }
 
     /// One field name on the left, and the rectangle that has to be hovered to read what it means.
-    private record Row(String label, String help, int x, int y, int width) {
+    private record Row(String label, String help, int x, int baseY, int width) {
 
-        boolean under(int mouseX, int mouseY) {
+        boolean under(int mouseX, int mouseY, int y) {
             return mouseX >= x && mouseX <= x + width && mouseY >= y - 6 && mouseY <= y + ROW_HEIGHT - 6;
         }
+    }
+
+    private record Placed(ClickableWidget widget, int baseY) {
     }
 
     private final JsonObject root;
@@ -109,6 +114,9 @@ public final class ProfessionEditorScreen extends Screen {
 
     private Tab tab = Tab.BASICS;
     private final List<Row> rows = new ArrayList<>();
+    private final List<Placed> placed = new ArrayList<>();
+    private int scroll;
+    private int maxScroll;
     private final Map<TextFieldWidget, Source> sources = new HashMap<>();
     private final Map<String, String> problems = new HashMap<>();
 
@@ -165,6 +173,7 @@ public final class ProfessionEditorScreen extends Screen {
     @Override
     protected void init() {
         rows.clear();
+        placed.clear();
         sources.clear();
         suggestions = List.of();
         int content = Math.min(MAX_CONTENT, width - 40);
@@ -179,8 +188,8 @@ public final class ProfessionEditorScreen extends Screen {
             button.active = value != tab;
         }
 
-        int top = 70;
-        int step = rowStep(top, rowCount());
+        int top = ROWS_TOP;
+        int step = ROW_STEP;
         int row = 0;
         switch (tab) {
             case BASICS -> {
@@ -267,6 +276,10 @@ public final class ProfessionEditorScreen extends Screen {
             }
         }
 
+        maxScroll = Math.max(0, rowCount() * ROW_STEP - (rowsBottom() - ROWS_TOP));
+        scroll = Math.min(scroll, maxScroll);
+        applyScroll();
+
         int buttons = height - 28;
         addDrawableChild(ButtonWidget.builder(Text.literal("Save and reload"), press -> save())
                 .dimensions(width / 2 - 154, buttons, 150, 20).build());
@@ -284,15 +297,39 @@ public final class ProfessionEditorScreen extends Screen {
         };
     }
 
-    /// Fits the rows into the room that is actually there.
-    private int rowStep(int top, int count) {
-        // Status-line room is reserved even when empty, so the rows do not jump when a save answers.
-        int bottom = height - 40 - STATUS_LINES * 10;
-        return Math.max(12, Math.min(ROW_HEIGHT + 4, (bottom - top) / Math.max(1, count)));
+    /// Status-line room is reserved even when empty, so the rows do not jump when a save answers.
+    private int rowsBottom() {
+        return height - 40 - STATUS_LINES * 10;
+    }
+
+    private boolean inView(int y) {
+        return y >= ROWS_TOP && y + ROW_HEIGHT <= rowsBottom();
+    }
+
+    private void applyScroll() {
+        for (Placed entry : placed) {
+            int y = entry.baseY() - scroll;
+            entry.widget().setY(y);
+            entry.widget().visible = inView(y);
+            if (!entry.widget().visible && getFocused() == entry.widget()) {
+                setFocused(null);
+            }
+        }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+        if (maxScroll > 0 && mouseY >= ROWS_TOP && mouseY <= rowsBottom()) {
+            scroll = Math.max(0, Math.min(maxScroll, scroll - (int) Math.signum(amount) * ROW_STEP));
+            applyScroll();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, amount);
     }
 
     private void switchTo(Tab value) {
         tab = value;
+        scroll = 0;
         clearAndInit();
     }
 
@@ -350,6 +387,7 @@ public final class ProfessionEditorScreen extends Screen {
             suggestionsClosed = false;
         });
         addDrawableChild(widget);
+        placed.add(new Placed(widget, y));
         sources.put(widget, spec.source());
         afterTyping(widget, spec, value);
         return widget;
@@ -395,7 +433,7 @@ public final class ProfessionEditorScreen extends Screen {
                 Never overwrites: a trades file already there stays as it is.
                 The answer below names the one command still missing (/reload).""",
                 left, y + 6, LABEL_WIDTH));
-        addDrawableChild(ButtonWidget.builder(Text.literal("Create default trades"), press -> {
+        ButtonWidget trades = addDrawableChild(ButtonWidget.builder(Text.literal("Create default trades"), press -> {
             if (fileName == null || fileName.isEmpty()) {
                 status = List.of(EditorResultPayload.bad("Give the file a name first, on the Basics page."));
                 return;
@@ -403,6 +441,7 @@ public final class ProfessionEditorScreen extends Screen {
             status = List.of(EditorResultPayload.ok("Asking the server..."));
             ClientNetwork.send(new EditorTradesPayload(fileName));
         }).dimensions(left + LABEL_WIDTH, y, content - LABEL_WIDTH, ROW_HEIGHT).build());
+        placed.add(new Placed(trades, y));
     }
 
     private <T> void cycle(int left, int content, int y, String label, T[] values, T initial,
@@ -415,6 +454,7 @@ public final class ProfessionEditorScreen extends Screen {
                 .build(left + LABEL_WIDTH, y, content - LABEL_WIDTH, ROW_HEIGHT,
                         Text.literal(label), (button, value) -> onChange.accept(value));
         addDrawableChild((ClickableWidget) widget);
+        placed.add(new Placed(widget, y));
     }
 
     /// Never throws on a bad value; `valueOf` would, closing the editor on a typo instead of letting it be corrected.
@@ -486,7 +526,8 @@ public final class ProfessionEditorScreen extends Screen {
             suggestionsClosed = false;
         }
         suggestions = List.of();
-        if (suggestionsClosed || !(getFocused() instanceof TextFieldWidget widget) || !widget.isFocused()) {
+        if (suggestionsClosed || !(getFocused() instanceof TextFieldWidget widget) || !widget.isFocused()
+                || !widget.visible) {
             return;
         }
         Source source = sources.get(widget);
@@ -569,9 +610,13 @@ public final class ProfessionEditorScreen extends Screen {
         context.drawCenteredTextWithShadow(textRenderer, subtitle, width / 2, 26, HINT);
 
         for (Row row : rows) {
-            context.drawTextWithShadow(textRenderer, row.label(), row.x(), row.y(),
-                    problems.containsKey(row.label()) ? BAD : LABEL);
+            int y = row.baseY() - scroll;
+            if (inView(y - 6)) {
+                context.drawTextWithShadow(textRenderer, row.label(), row.x(), y,
+                        problems.containsKey(row.label()) ? BAD : LABEL);
+            }
         }
+        drawScrollBar(context, content);
 
         if (!suggestions.isEmpty()) {
             // Field text is flushed after this fill, so only depth keeps the list on top.
@@ -624,9 +669,22 @@ public final class ProfessionEditorScreen extends Screen {
         return lines;
     }
 
+    private void drawScrollBar(DrawContext context, int content) {
+        if (maxScroll <= 0) {
+            return;
+        }
+        int x = (width + content) / 2 + 4;
+        int track = rowsBottom() - ROWS_TOP;
+        int thumb = Math.max(10, track * track / (track + maxScroll));
+        int thumbY = ROWS_TOP + (track - thumb) * scroll / maxScroll;
+        context.fill(x, ROWS_TOP, x + 2, ROWS_TOP + track, HINT);
+        context.fill(x, thumbY, x + 2, thumbY + thumb, TITLE);
+    }
+
     private void drawHelp(DrawContext context, int mouseX, int mouseY) {
         for (Row row : rows) {
-            if (!row.under(mouseX, mouseY)) {
+            int y = row.baseY() - scroll;
+            if (!inView(y - 6) || !row.under(mouseX, mouseY, y)) {
                 continue;
             }
             List<Text> help = new ArrayList<>();
