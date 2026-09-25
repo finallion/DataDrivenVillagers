@@ -17,13 +17,15 @@ Start the game once. The mod writes an example and a readme into
 config/datadrivenvillagers/professions/
 ```
 
-Edit `example_baker.json`, restart, and `/ddv list` shows the profession.
+The example uses a structure block as its workstation, so it takes no block away from a normal
+world. To see it work, get one with `/give @s minecraft:structure_block` and place it next to an
+unemployed villager. Edit `example_baker.json`, restart, and `/ddv list` shows the profession.
 
 ```json
 {
-  "workstation": "minecraft:campfire",
+  "workstation": "minecraft:structure_block",
   "display_name": "Baker",
-  "texture": "baker.png",
+  "texture": "example_baker.png",
   "hat": "none",
   "work_sound": "minecraft:entity.villager.work_farmer",
   "gatherable_items": ["minecraft:wheat", "minecraft:bread"],
