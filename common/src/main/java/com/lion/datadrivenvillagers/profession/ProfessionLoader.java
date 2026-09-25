@@ -802,7 +802,7 @@ public final class ProfessionLoader {
                 workSound(definition));
     }
 
-    /// Vanilla builds the key as `entity.minecraft.villager.<path>` regardless of namespace.
+    /// Empty without `display_name`; vanilla then names it by `entity.minecraft.villager.<path>`, any namespace.
     public static Optional<Text> displayName(Identifier profession) {
         return ProfessionRegistry.get(profession)
                 .flatMap(ProfessionDefinition::displayName)

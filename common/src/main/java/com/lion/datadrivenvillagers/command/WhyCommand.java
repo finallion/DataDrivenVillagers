@@ -194,7 +194,7 @@ public final class WhyCommand {
         return finish(source, report, definition, poi);
     }
 
-    /// On Fabric, a later-registered point of interest silently takes over a block state in POI_STATES_TO_TYPE.
+    /// On Fabric, a later-registered point of interest silently takes over a block state in `JobSiteStates`.
     private static void blocks(Report report, ProfessionDefinition definition,
                                RegistryEntry<PointOfInterestType> poi) {
         List<Identifier> declared = definition.isOverride()
@@ -352,7 +352,7 @@ public final class WhyCommand {
         return target + "'s own" + blocksOf(poi) + ", so villagers take the job the way they always did";
     }
 
-    /// Blocks from POI_STATES_TO_TYPE, the sensor's map; a block another mod claimed is not listed here.
+    /// Blocks from `JobSiteStates`, the sensor's map; a block another mod claimed is not listed here.
     private static List<String> jobSiteBlocks(RegistryEntry<PointOfInterestType> poi) {
         return JobSiteStates.all().entrySet().stream()
                 .filter(entry -> entry.getValue().value() == poi.value())
