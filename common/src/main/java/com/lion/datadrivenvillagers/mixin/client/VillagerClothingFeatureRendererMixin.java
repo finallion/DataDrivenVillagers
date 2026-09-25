@@ -114,11 +114,8 @@ public abstract class VillagerClothingFeatureRendererMixin {
         hat.map(VillagerClothingFeatureRendererMixin::toHatType).ifPresent(cir::setReturnValue);
     }
 
+    /// No switch here: a switch on an enum compiles to a synthetic class that Mixin cannot load in production.
     private static VillagerResourceMetadata.HatType toHatType(HatKind kind) {
-        return switch (kind) {
-            case NONE -> VillagerResourceMetadata.HatType.NONE;
-            case PARTIAL -> VillagerResourceMetadata.HatType.PARTIAL;
-            case FULL -> VillagerResourceMetadata.HatType.FULL;
-        };
+        return VillagerResourceMetadata.HatType.valueOf(kind.name());
     }
 }
