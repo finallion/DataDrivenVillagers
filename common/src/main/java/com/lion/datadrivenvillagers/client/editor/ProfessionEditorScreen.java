@@ -677,7 +677,8 @@ public final class ProfessionEditorScreen extends Screen {
         context.drawCenteredTextWithShadow(textRenderer, subtitle, width / 2, 26, HINT);
 
         context.fill(left - 4, ROWS_TOP - 4, left + content + 4, rowsBottom() + 4, PANEL);
-        context.enableScissor(0, ROWS_TOP, width, rowsBottom());
+        // A text field draws its border one pixel outside its bounds.
+        context.enableScissor(0, ROWS_TOP - 1, width, rowsBottom() + 1);
         for (Row row : rows) {
             int y = row.baseY() - scroll;
             if (overlaps(y - 6)) {
