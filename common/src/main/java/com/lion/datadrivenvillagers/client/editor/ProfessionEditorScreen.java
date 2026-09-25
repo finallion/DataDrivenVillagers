@@ -51,6 +51,9 @@ public final class ProfessionEditorScreen extends Screen {
     private static final int ROW_HEIGHT = 20;
     private static final int ROW_STEP = ROW_HEIGHT + 4;
     private static final int ROWS_TOP = 70;
+    private static final int SCROLL_STEP = 12;
+    private static final int SCROLLBAR = 10;
+    private static final int SCROLLBAR_WIDTH = 6;
     private static final int SUGGESTION_HEIGHT = 12;
     private static final int ESCAPE = 256;
     /// How many wrapped report lines get room; overflow is cut by the scissor in render, never painted over rows.
@@ -65,6 +68,10 @@ public final class ProfessionEditorScreen extends Screen {
     private static final int BAD = 0xFFFF6B6B;
     private static final int FIELD_OK = 0xFFE0E0E0;
     private static final int SUGGESTION_BACKGROUND = 0xF0100010;
+    private static final int PANEL = 0x70000000;
+    private static final int BAR_TRACK = 0xFF000000;
+    private static final int BAR_THUMB = 0xFF808080;
+    private static final int BAR_THUMB_LIGHT = 0xFFC0C0C0;
 
     private enum Tab {
         BASICS("Basics"), LOOK("Look"), WORK("Work"), COMBAT("Combat"), PLAN("Day plan");
@@ -117,6 +124,9 @@ public final class ProfessionEditorScreen extends Screen {
     private final List<Placed> placed = new ArrayList<>();
     private int scroll;
     private int maxScroll;
+    private boolean draggingBar;
+    private int left;
+    private int content;
     private final Map<TextFieldWidget, Source> sources = new HashMap<>();
     private final Map<String, String> problems = new HashMap<>();
 
@@ -176,8 +186,9 @@ public final class ProfessionEditorScreen extends Screen {
         placed.clear();
         sources.clear();
         suggestions = List.of();
-        int content = Math.min(MAX_CONTENT, width - 40);
-        int left = (width - content) / 2;
+        draggingBar = false;
+        content = Math.min(MAX_CONTENT, width - 40);
+        left = (width - content) / 2;
 
         int tabWidth = content / Tab.values().length;
         for (Tab value : Tab.values()) {
@@ -302,29 +313,71 @@ public final class ProfessionEditorScreen extends Screen {
         return height - 40 - STATUS_LINES * 10;
     }
 
+    /// A partly visible row stays drawn and is clipped at the panel edge, so the list reads as scrollable.
+    private boolean overlaps(int y) {
+        return y + ROW_HEIGHT > ROWS_TOP && y < rowsBottom();
+    }
+
     private boolean inView(int y) {
         return y >= ROWS_TOP && y + ROW_HEIGHT <= rowsBottom();
+    }
+
+    private boolean inRowArea(double mouseY) {
+        return mouseY >= ROWS_TOP && mouseY < rowsBottom();
+    }
+
+    private void scrollTo(int value) {
+        scroll = Math.max(0, Math.min(maxScroll, value));
+        applyScroll();
     }
 
     private void applyScroll() {
         for (Placed entry : placed) {
             int y = entry.baseY() - scroll;
             entry.widget().setY(y);
-            entry.widget().visible = inView(y);
+            entry.widget().visible = overlaps(y);
             if (!entry.widget().visible && getFocused() == entry.widget()) {
                 setFocused(null);
             }
         }
     }
 
+    private int barX() {
+        return left + content - SCROLLBAR_WIDTH;
+    }
+
+    private int thumbHeight() {
+        int track = rowsBottom() - ROWS_TOP;
+        return Math.max(10, track * track / (track + maxScroll));
+    }
+
+    private void dragBarTo(double mouseY) {
+        int free = rowsBottom() - ROWS_TOP - thumbHeight();
+        scrollTo((int) Math.round((mouseY - ROWS_TOP - thumbHeight() / 2.0) * maxScroll / Math.max(1, free)));
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        if (maxScroll > 0 && mouseY >= ROWS_TOP && mouseY <= rowsBottom()) {
-            scroll = Math.max(0, Math.min(maxScroll, scroll - (int) Math.signum(verticalAmount) * ROW_STEP));
-            applyScroll();
+        if (maxScroll > 0 && inRowArea(mouseY)) {
+            scrollTo(scroll - (int) Math.signum(verticalAmount) * SCROLL_STEP);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (draggingBar) {
+            dragBarTo(mouseY);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        draggingBar = false;
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     private void switchTo(Tab value) {
@@ -375,7 +428,7 @@ public final class ProfessionEditorScreen extends Screen {
         rows.add(new Row(spec.label(), spec.help(), left, y + 6, LABEL_WIDTH));
 
         TextFieldWidget widget = new TextFieldWidget(textRenderer, left + LABEL_WIDTH, y,
-                content - LABEL_WIDTH, ROW_HEIGHT, Text.literal(spec.label()));
+                content - LABEL_WIDTH - SCROLLBAR, ROW_HEIGHT, Text.literal(spec.label()));
         // The default is 32 characters, which a list of three block ids passes before it is half typed.
         widget.setMaxLength(1024);
         widget.setPlaceholder(Text.literal(spec.placeholder()));
@@ -386,7 +439,7 @@ public final class ProfessionEditorScreen extends Screen {
             // Typing is a new question, so a list that was waved away comes back.
             suggestionsClosed = false;
         });
-        addDrawableChild(widget);
+        addSelectableChild(widget);
         placed.add(new Placed(widget, y));
         sources.put(widget, spec.source());
         afterTyping(widget, spec, value);
@@ -433,14 +486,14 @@ public final class ProfessionEditorScreen extends Screen {
                 Never overwrites: a trades file already there stays as it is.
                 The answer below names the one command still missing (/reload).""",
                 left, y + 6, LABEL_WIDTH));
-        ButtonWidget trades = addDrawableChild(ButtonWidget.builder(Text.literal("Create default trades"), press -> {
+        ButtonWidget trades = addSelectableChild(ButtonWidget.builder(Text.literal("Create default trades"), press -> {
             if (fileName == null || fileName.isEmpty()) {
                 status = List.of(EditorResultPayload.bad("Give the file a name first, on the Basics page."));
                 return;
             }
             status = List.of(EditorResultPayload.ok("Asking the server..."));
             ClientNetwork.send(new EditorTradesPayload(fileName));
-        }).dimensions(left + LABEL_WIDTH, y, content - LABEL_WIDTH, ROW_HEIGHT).build());
+        }).dimensions(left + LABEL_WIDTH, y, content - LABEL_WIDTH - SCROLLBAR, ROW_HEIGHT).build());
         placed.add(new Placed(trades, y));
     }
 
@@ -451,9 +504,9 @@ public final class ProfessionEditorScreen extends Screen {
                 .values(values)
                 .initially(initial)
                 .omitKeyText()
-                .build(left + LABEL_WIDTH, y, content - LABEL_WIDTH, ROW_HEIGHT,
+                .build(left + LABEL_WIDTH, y, content - LABEL_WIDTH - SCROLLBAR, ROW_HEIGHT,
                         Text.literal(label), (button, value) -> onChange.accept(value));
-        addDrawableChild((ClickableWidget) widget);
+        addSelectableChild((ClickableWidget) widget);
         placed.add(new Placed(widget, y));
     }
 
@@ -527,7 +580,7 @@ public final class ProfessionEditorScreen extends Screen {
         }
         suggestions = List.of();
         if (suggestionsClosed || !(getFocused() instanceof TextFieldWidget widget) || !widget.isFocused()
-                || !widget.visible) {
+                || !inView(widget.getY())) {
             return;
         }
         Source source = sources.get(widget);
@@ -566,7 +619,21 @@ public final class ProfessionEditorScreen extends Screen {
             suggestionsClosed = true;
             suggestions = List.of();
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        if (maxScroll > 0 && inRowArea(mouseY) && mouseX >= barX() && mouseX < barX() + SCROLLBAR_WIDTH) {
+            draggingBar = true;
+            dragBarTo(mouseY);
+            return true;
+        }
+        if (inRowArea(mouseY)) {
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+        // The clipped part of an edge row lies outside the panel and must not take the click.
+        for (Placed entry : placed) {
+            entry.widget().visible = false;
+        }
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        applyScroll();
+        return handled;
     }
 
     @Override
@@ -601,14 +668,24 @@ public final class ProfessionEditorScreen extends Screen {
                 + "  -  hover a field name;  * needs a restart";
         context.drawCenteredTextWithShadow(textRenderer, subtitle, width / 2, 26, HINT);
 
+        context.fill(left - 4, ROWS_TOP - 4, left + content + 4, rowsBottom() + 4, PANEL);
+        context.enableScissor(0, ROWS_TOP, width, rowsBottom());
         for (Row row : rows) {
             int y = row.baseY() - scroll;
-            if (inView(y - 6)) {
+            if (overlaps(y - 6)) {
                 context.drawTextWithShadow(textRenderer, row.label(), row.x(), y,
                         problems.containsKey(row.label()) ? BAD : LABEL);
             }
         }
-        drawScrollBar(context, content);
+        // Outside the panel the mouse is over the clipped part of a row, which must not light up.
+        int rowMouseY = inRowArea(mouseY) ? mouseY : -1;
+        for (Placed entry : placed) {
+            if (entry.widget().visible) {
+                entry.widget().render(context, mouseX, rowMouseY, delta);
+            }
+        }
+        context.disableScissor();
+        drawScrollBar(context);
 
         if (!suggestions.isEmpty()) {
             // Field text is flushed after this fill, so only depth keeps the list on top.
@@ -661,22 +738,22 @@ public final class ProfessionEditorScreen extends Screen {
         return lines;
     }
 
-    private void drawScrollBar(DrawContext context, int content) {
+    private void drawScrollBar(DrawContext context) {
         if (maxScroll <= 0) {
             return;
         }
-        int x = (width + content) / 2 + 4;
-        int track = rowsBottom() - ROWS_TOP;
-        int thumb = Math.max(10, track * track / (track + maxScroll));
-        int thumbY = ROWS_TOP + (track - thumb) * scroll / maxScroll;
-        context.fill(x, ROWS_TOP, x + 2, ROWS_TOP + track, HINT);
-        context.fill(x, thumbY, x + 2, thumbY + thumb, TITLE);
+        int x = barX();
+        int thumb = thumbHeight();
+        int thumbY = ROWS_TOP + (rowsBottom() - ROWS_TOP - thumb) * scroll / maxScroll;
+        context.fill(x, ROWS_TOP, x + SCROLLBAR_WIDTH, rowsBottom(), BAR_TRACK);
+        context.fill(x, thumbY, x + SCROLLBAR_WIDTH, thumbY + thumb, BAR_THUMB);
+        context.fill(x, thumbY, x + SCROLLBAR_WIDTH - 1, thumbY + thumb - 1, BAR_THUMB_LIGHT);
     }
 
     private void drawHelp(DrawContext context, int mouseX, int mouseY) {
         for (Row row : rows) {
             int y = row.baseY() - scroll;
-            if (!inView(y - 6) || !row.under(mouseX, mouseY, y)) {
+            if (!inRowArea(mouseY) || !overlaps(y - 6) || !row.under(mouseX, mouseY, y)) {
                 continue;
             }
             List<Text> help = new ArrayList<>();
