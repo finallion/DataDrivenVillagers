@@ -13,18 +13,12 @@ import java.util.Locale;
 import java.util.Optional;
 
 /// Server to client: how one profession or villager type looks. Sent on join and after `/ddv reload`,
-/// one packet per definition because vanilla caps a custom payload at one megabyte. Only what the
-/// renderer reads travels: hat and image; a profession not registered on the client cannot be created
-/// by a packet.
+/// one packet per definition since vanilla caps a custom payload at one megabyte. Only what the
+/// renderer reads travels: hat (meaningless for a type) and image; a profession not registered on
+/// the client cannot be created by a packet.
 ///
-/// @param kind          which registry the renderer asks
-/// @param target        the id the renderer asks with: the vanilla id for an override, ours otherwise
-/// @param definition    the file's own id, where the image is served from
-/// @param hat           hat layer overlap, meaningless for a type
-/// @param texture       resource pack identifier, absent when png or nothing is sent
-/// @param png           the image bytes, absent when an identifier is sent or the file had none
-/// @param zombieTexture the zombie villager's identifier, absent means it wears `texture`
-/// @param zombiePng     the zombie villager's image, absent means it wears `png`
+/// `target` is the renderer's lookup id, the vanilla id for an override; `definition` is the file's own id.
+/// An absent `zombieTexture` or `zombiePng` means the zombie villager wears the matching villager one.
 public record LookPayload(
         Kind kind,
         Identifier target,

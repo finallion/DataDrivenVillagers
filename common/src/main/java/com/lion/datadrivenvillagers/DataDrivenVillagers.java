@@ -14,8 +14,7 @@ public class DataDrivenVillagers {
 
     private static int generation;
 
-    /// Mod init is the only window in which professions, points of interest and villager types can be
-    /// registered: their registries freeze before any datapack is read.
+    /// Registries freeze before any datapack is read, so this must happen during mod init.
     public static void init() {
         ProfessionLoader.loadAll();
         TypeLoader.registerTypes();
@@ -25,8 +24,7 @@ public class DataDrivenVillagers {
         return Identifier.of(MOD_ID, path);
     }
 
-    /// Bumped on every reload. Caches (decoded textures on the render thread) compare it instead of
-    /// being invalidated from the server thread, so no lock is needed. Only inequality matters.
+    /// Bumped per reload; render-thread caches compare it for inequality, so the server thread needs no lock.
     public static int generation() {
         return generation;
     }

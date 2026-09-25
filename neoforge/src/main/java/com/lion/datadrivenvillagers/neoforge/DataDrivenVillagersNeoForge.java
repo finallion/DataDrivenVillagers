@@ -32,8 +32,7 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 @Mod(DataDrivenVillagers.MOD_ID)
 public class DataDrivenVillagersNeoForge {
 
-    /// NeoForge fires the villager profession RegisterEvent before the point of interest one; both
-    /// steps call `ProfessionLoader.prepare()`, which parses and builds once.
+    /// NeoForge fires the villager profession RegisterEvent before the point of interest one.
     public DataDrivenVillagersNeoForge(IEventBus modEventBus) {
         modEventBus.addListener(DataDrivenVillagersNeoForge::onRegister);
         modEventBus.addListener(DataDrivenVillagersNeoForge::onRegisterPayloads);
@@ -62,9 +61,7 @@ public class DataDrivenVillagersNeoForge {
         }
     }
 
-    /// This class is loaded on the dedicated server, so handlers reference only `SyncedLooks` and
-    /// `EditorBridge`, never a screen class. Handlers run on the main thread, on the client the render
-    /// thread.
+    /// Loaded on the dedicated server: handlers reference only `SyncedLooks` and `EditorBridge`, never a screen.
     private static void onRegisterPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
         registrar.playToClient(LooksBeginPayload.ID, LooksBeginPayload.CODEC,

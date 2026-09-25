@@ -70,8 +70,7 @@ public abstract class SimpleRegistryMixin<T> {
         return append(merged) == 0 ? entries : List.copyOf(merged);
     }
 
-    /// Read-only: hands the members of each biome tag to the type loader. Biomes are a datapack
-    /// registry, so they arrive through `setEntries`, not `startTagReload`.
+    /// Biomes are a datapack registry, so their tags arrive through `setEntries`, not `startTagReload`.
     @Inject(method = "setEntries", at = @At("HEAD"))
     private void datadrivenvillagers$readBiomeTags(TagKey<T> tag, List<RegistryEntry<T>> entries,
                                                    CallbackInfo ci) {

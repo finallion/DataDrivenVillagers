@@ -12,15 +12,10 @@ import java.util.Map;
 
 /// Draws a roofed stall, five blocks to a side, with the workstation under the roof, in the materials
 /// of the village it stands in. Emitted as structure-block nbt so it passes through
-/// {@code StructureTemplateManager.createTemplate} and its data fixers like an author's file. Jigsaw
-/// orientations and levels follow `plains_small_house_1.nbt` and `streets/straight_01.nbt`; a jigsaw
-/// that is off attaches to nothing and the generator does not report it.
+/// {@code StructureTemplateManager.createTemplate} and its data fixers like an author's file.
 ///
-/// Layout, x east, y up, z south:
-///
-///     y 0   floor, street entrance on the west edge, villager spot in the middle
-///     y 1-3 a post in each corner, the workstation at the east side, two torches
-///     y 4   roof
+/// Jigsaw orientations and levels follow `plains_small_house_1.nbt` and `streets/straight_01.nbt`;
+/// a jigsaw that is off attaches to nothing and the generator does not report it.
 public final class PlotGenerator {
 
     static final int SIZE = 5;
@@ -43,8 +38,7 @@ public final class PlotGenerator {
     private PlotGenerator() {
     }
 
-    /// The village type in a pool id (`minecraft:village/desert/houses` is desert). Ids naming no
-    /// vanilla village fall back to plains.
+    /// The village type named in a pool id; ids naming no vanilla village fall back to plains.
     public static String villageOf(Identifier poolId) {
         String path = poolId.getPath();
         for (String village : MATERIALS.keySet()) {
@@ -55,10 +49,7 @@ public final class PlotGenerator {
         return "plains";
     }
 
-    /// The plot as structure nbt, ready for {@code createTemplate}.
-    ///
-    /// @param workstation the block under the roof, written with its default state
-    /// @param village     one of the five vanilla village types; anything else draws in plains materials
+    /// A `village` outside the five vanilla types draws in plains materials.
     public static NbtCompound plot(Identifier workstation, String village) {
         return plot(workstation, village, SharedConstants.getGameVersion().dataVersion().id());
     }
@@ -75,8 +66,7 @@ public final class PlotGenerator {
         int station = palette.of(workstation.toString());
         int torch = palette.of("minecraft:torch");
 
-        // Street entrance, middle of the west edge, becomes floor once connected. Joint "aligned" as
-        // on vanilla house entrances; "rollable" would let the street rotate the plot.
+        // Joint "aligned", not "rollable": rollable would let the street rotate the plot.
         int entrance = palette.of("minecraft:jigsaw", "orientation", "west_up");
         // Villager spawn as in plains_small_house_1: a jigsaw pointing up at the villagers pool.
         int resident = palette.of("minecraft:jigsaw", "orientation", "up_north");

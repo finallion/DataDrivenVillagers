@@ -33,8 +33,7 @@ class ConfigFilesTest {
         assertTrue(ConfigFiles.isFileName("noextension"));
     }
 
-    /// Odd but harmless names an author may already have. The rule refuses paths, not spellings, so
-    /// none of these may start failing.
+    /// Odd but harmless names an author may have; the rule refuses paths, not spellings.
     @Test
     void oddButHarmlessNamesStillPass() {
         assertTrue(ConfigFiles.isFileName("my baker.png"));
@@ -73,8 +72,7 @@ class ConfigFilesTest {
         assertEquals("baker.png", inside.getFileName().toString());
     }
 
-    /// The profession file is somebody's work, so a save must not be able to halve it. Also covers
-    /// that the temporary file is gone afterwards: the loaders would report a stray one as rejected.
+    /// Also checks no stray `.tmp` file remains; the loaders would report one as a rejected definition.
     @Test
     void writesThroughATemporaryFileAndLeavesNoneBehind(@TempDir Path folder) throws IOException {
         Path file = folder.resolve("baker.json");
@@ -99,7 +97,6 @@ class ConfigFilesTest {
         assertTrue(ConfigFiles.resolveInside(FOLDER, "").isEmpty());
         assertTrue(ConfigFiles.resolveInside(FOLDER, "sub/x.png").isEmpty());
         // On Windows this walks up two folders; on Linux it is one odd file name inside the folder.
-        // Either way the parser has already refused it, so this second lock only has to not throw.
         ConfigFiles.resolveInside(FOLDER, ".." + BS + ".." + BS + "x.png");
     }
 }

@@ -29,13 +29,11 @@ import java.util.List;
 
 /// `/ddv doctor`: every `/ddv why` at once, as a text file to paste into an issue.
 ///
-/// The chat is the wrong place for a hundred lines, and a screenshot of it is the wrong thing to
-/// send. This writes what every other command would have said - versions, the folder, every loaded
-/// definition's report, every rejected file's reason - into one file, and says in chat only how many
-/// reports came out broken and where the file is.
+/// Chat is the wrong place for a hundred lines. This writes versions, the folder, every loaded
+/// definition's report and every rejected file's reason into one file, and reports in chat only how
+/// many broke and where the file is.
 ///
-/// No world is inspected beyond what the reports already need: the file is about the config folder,
-/// and a villager standing somewhere is `/ddv why villager`'s business.
+/// The file covers the config folder only; a villager standing somewhere is `/ddv why villager`'s business.
 public final class DoctorCommand {
 
     private static final String FILE = "doctor.txt";

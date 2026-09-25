@@ -51,8 +51,7 @@ class PngHeaderTest {
         }
     }
 
-    /// The overload the sender and `/ddv why` both call. It must reach a verdict from the header
-    /// alone, or a huge file would be read into memory to find out that it may not be decoded.
+    /// Must reach a verdict from the header alone, or a huge file would be read fully just to be rejected.
     @Test
     void aFileIsJudgedFromItsHeaderAlone(@TempDir Path folder) throws IOException {
         Path bomb = folder.resolve("bomb.png");

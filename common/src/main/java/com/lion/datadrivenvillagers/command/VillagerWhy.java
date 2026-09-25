@@ -120,10 +120,7 @@ final class VillagerWhy {
                 : zombie(source, (ZombieVillagerEntity) entity);
     }
 
-    /// A zombie villager keeps profession, type, level, xp, trades and the tickets on its old station
-    /// and bed, but not the memories of them: a zombie's brain has no module for job site or bed.
-    /// `releaseAllTickets` runs only on death and on the witch conversion, so a cured villager starts
-    /// with an empty brain and the old blocks stay taken.
+    /// `releaseAllTickets` runs only on death or witch conversion, so curing a zombie leaves the old blocks taken.
     static Report zombie(ServerCommandSource source, ZombieVillagerEntity zombie) {
         Report report = new Report();
         ServerWorld world = (ServerWorld) zombie.getWorld();
@@ -207,9 +204,7 @@ final class VillagerWhy {
         return report;
     }
 
-    /// The villager type: its file, its texture, and whether the biome the villager stands in is held
-    /// by this type by name or through a tag. The type is set at birth from the birth biome, which is
-    /// not remembered afterwards, so the current biome is the only witness.
+    /// Set at birth from the birth biome, never remembered again, so the current biome is only a witness.
     private static void type(Report report, ServerWorld world, VillagerEntity villager, Identifier typeId) {
         Optional<TypeDefinition> definition = typeId == null ? Optional.empty() : TypeRegistry.get(typeId);
         if (definition.isEmpty()) {
@@ -245,13 +240,7 @@ final class VillagerWhy {
         report.notes(List.of(new Note(true, "biome here " + biomeId + "  " + how)));
     }
 
-    /// Why a villager refuses to trade. Two vanilla traps that stack:
-    /// 1. `getOffers()` builds the offer list on the first right click and caches it; `interactMob`
-    ///    answers an empty list with `sayNo`. An empty list is not written to nbt, so unloading the
-    ///    chunk clears it. Read here through an accessor so the call itself does not trigger the build.
-    /// 2. `fillRecipes` hands out only the tier of the villager's current level, nothing below it.
-    ///    A summoned `level:2` villager with only novice trades gets nothing, and re-entering the
-    ///    world rebuilds the same nothing. Summon with level 1 plus `Xp:1` (xp 0 loses the job).
+    /// Read via accessor: calling `getOffers()` directly would trigger and cache the very build being diagnosed.
     private static void trades(Report report, VillagerEntity villager,
                                RegistryEntry<VillagerProfession> profession) {
         if (villager.isBaby() || profession.matchesKey(VillagerProfession.NONE)
@@ -318,8 +307,7 @@ final class VillagerWhy {
         Optional<RegistryEntry<PointOfInterestType>> poi = world.getPointOfInterestStorage().getType(pos.get().pos());
         if (poi.isEmpty()) {
             if (memory == MemoryModuleType.MEETING_POINT) {
-                // The core task list forgets a job site, the rest list a bed, nothing forgets a meeting
-                // point: a moved bell leaves the old spot in memory until the next meet. Harmless.
+                // Unlike job site or bed, vanilla never drops a stale meeting-point memory.
                 report.warn(what, where + ", " + block + " is no bell any more, stale: vanilla never "
                         + "forgets a meeting point, the next meet finds the new bell");
                 return;
@@ -333,16 +321,14 @@ final class VillagerWhy {
     }
 
 
-    /// Free tickets on a point of interest. A villager removed without dying never returns its ticket;
-    /// only breaking and replacing the block frees it.
+    /// A villager removed without dying never returns its ticket; only breaking and replacing the block frees it.
     private static String tickets(ServerWorld world, BlockPos pos, RegistryEntry<PointOfInterestType> poi) {
         int free = world.getPointOfInterestStorage().getFreeTickets(pos);
         int total = poi.value().ticketCount();
         return free + "/" + total + " place(s) free";
     }
 
-    /// Acquirable job site blocks within 48 blocks with their free places. A villager with a job cannot
-    /// switch, so for one only its own block is listed and the rest counted.
+    /// A villager with a job cannot switch, so only its own block is listed and the rest are counted.
     private static void stationsNearby(Report report, ServerWorld world, VillagerEntity villager) {
         if (villager.isBaby()) {
             return;
@@ -444,8 +430,7 @@ final class VillagerWhy {
         }
     }
 
-    /// The conditions of vanilla's `SleepTask.shouldRun`, each reported separately: a bed in this
-    /// dimension, within 2 blocks, still a bed, not occupied, and not woken in the last 100 ticks.
+    /// Mirrors vanilla's `SleepTask.shouldRun` conditions, each reported separately.
     private static void sleep(Report report, ServerWorld world, Brain<VillagerEntity> brain, VillagerEntity villager) {
         if (villager.isBaby()) {
             return;
@@ -494,8 +479,7 @@ final class VillagerWhy {
     }
 
 
-    /// Attack damage read off the entity attribute, which is set when the brain is built, so it can
-    /// lag behind the file.
+    /// Attack damage read off the entity attribute, set only when the brain is built, so it can lag behind the file.
     private static void attack(Report report, VillagerEntity villager, Optional<ProfessionDefinition> definition) {
         Optional<Attack> attack = definition.flatMap(ProfessionDefinition::attack);
         if (attack.isEmpty()) {
@@ -508,9 +492,7 @@ final class VillagerWhy {
                 + targets + (asSet ? "" : "  the file says " + attack.get().damage() + ", the brain was not rebuilt since"))
                 .formatted(asSet ? Formatting.GRAY : Formatting.YELLOW));
     }
-    /// Pickup state, read off the `VillagerProfession` record rather than the file: `gatherable_items`
-    /// is handed over once at registration, so file and game can disagree until a restart. Vanilla
-    /// also needs room in the inventory and no pickup cooldown.
+    /// Read off `VillagerProfession`, not the file; `gatherable_items` copies once at registration.
     private static void gathers(Report report, ServerWorld world, VillagerEntity villager,
                                 Brain<VillagerEntity> brain, Optional<ProfessionDefinition> definition) {
         Set<Item> inGame = villager.getVillagerData().profession().value().gatherableItems();
@@ -535,8 +517,7 @@ final class VillagerWhy {
             }
         }
         List<String> blocked = new ArrayList<>();
-        // `MobEntity.readCustomData` sets CanPickUpLoot from nbt with default false, overwriting the
-        // constructor's true: a summoned villager never picks up.
+        // `MobEntity.readCustomData` sets CanPickUpLoot false from nbt, overwriting the constructor's true default.
         if (!villager.canPickUpLoot()) {
             blocked.add("its CanPickUpLoot flag is off, so it can never take anything - loading a "
                     + "villager from nbt sets that flag to false, which is what /summon does. Fix it "

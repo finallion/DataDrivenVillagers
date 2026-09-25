@@ -51,13 +51,10 @@ public final class ProfessionEditorScreen extends Screen {
     private static final int ROW_HEIGHT = 20;
     private static final int SUGGESTION_HEIGHT = 12;
     private static final int ESCAPE = 256;
-    /// How many wrapped report lines get room. Everything the server sends is written to fit in
-    /// here; whatever still will not fit is cut by the scissor in render, never painted over rows.
+    /// How many wrapped report lines get room; overflow is cut by the scissor in render, never painted over rows.
     private static final int STATUS_LINES = 5;
 
-    /// Every colour here carries its alpha, and that is not decoration: 1.21.6 took the old "alpha
-    /// zero means opaque" correction out of the text renderer, so `0xA0A0A0` is not grey any more, it
-    /// is invisible.
+    /// Alpha zero renders transparent, not opaque; a colour without alpha bits, like `0xA0A0A0`, is invisible.
     private static final int TITLE = 0xFFFFFFFF;
     private static final int LABEL = 0xFFA0A0A0;
     private static final int HINT = 0xFF707070;
@@ -138,16 +135,14 @@ public final class ProfessionEditorScreen extends Screen {
         try {
             parsed = JsonParser.parseString(payload.json()).getAsJsonObject();
         } catch (RuntimeException e) {
-            // A file that is not json at all still has to be openable, or the one case where the editor
-            // is most useful - a file the author broke by hand - is the one case it refuses.
+            // Must stay openable on invalid json too: fixing a hand-broken file is the editor's most useful case.
             parsed = new JsonObject();
             this.status = List.of(
                     EditorResultPayload.bad("That file is not readable as json: " + e.getMessage()),
                     EditorResultPayload.bad("The editor starts empty. Saving replaces the file."));
         }
         if (this.status.isEmpty()) {
-            // What the running game holds for this file, on the screen before the first keystroke.
-            // The editor used to answer this only after a save, which is one save too late.
+            // What the server currently holds for this file, shown before the first keystroke.
             this.status = List.of(payload.state());
         }
         this.root = parsed;
@@ -155,14 +150,12 @@ public final class ProfessionEditorScreen extends Screen {
         this.planMode = readPlanMode();
     }
 
-    /// Called from the packet handler on the client thread. Static because the handler must not name a
-    /// screen type at all on a dedicated server, and this is the one method it needs.
+    /// Static so the packet handler need not name this screen type, which a dedicated server must never load.
     public static void open(EditorOpenPayload payload) {
         MinecraftClient.getInstance().setScreen(new ProfessionEditorScreen(payload));
     }
 
-    /// The answer to a save, put where the author is looking. Ignored when he has already closed the
-    /// screen - a rejection also goes to the chat, so nothing is lost.
+    /// Ignored if the screen is already closed; a rejection also reaches the chat, so nothing is lost.
     public static void showResult(EditorResultPayload payload) {
         if (MinecraftClient.getInstance().currentScreen instanceof ProfessionEditorScreen screen) {
             screen.status = payload.notes();
@@ -191,8 +184,7 @@ public final class ProfessionEditorScreen extends Screen {
         int row = 0;
         switch (tab) {
             case BASICS -> {
-                // Lower case as it is typed rather than corrected on save: the author sees the name he
-                // will get, instead of finding out afterwards that the file is called something else.
+                // Lower-cased live, not only on save, so the author sees the real filename right away.
                 TextFieldWidget name = box(left, content, top + step * row++, EditorFields.BASICS.get(0),
                         fileName, value -> fileName = value.trim().toLowerCase(Locale.ROOT));
                 name.setTextPredicate(typed -> typed.equals(typed.toLowerCase(Locale.ROOT)));
@@ -294,8 +286,7 @@ public final class ProfessionEditorScreen extends Screen {
 
     /// Fits the rows into the room that is actually there.
     private int rowStep(int top, int count) {
-        // Room for the status lines is reserved whether or not there are any, so the rows do not
-        // jump the moment a save answers.
+        // Status-line room is reserved even when empty, so the rows do not jump when a save answers.
         int bottom = height - 40 - STATUS_LINES * 10;
         return Math.max(12, Math.min(ROW_HEIGHT + 4, (bottom - top) / Math.max(1, count)));
     }
@@ -326,9 +317,7 @@ public final class ProfessionEditorScreen extends Screen {
         }
     }
 
-    /// `attack` is an object of two numbers, and it may only exist when `attacks` names something to
-    /// use it on. Emptying both boxes takes the object away again rather than leaving `{}` behind for
-    /// the parser to complain about.
+    /// Removes `attack` entirely when both fields are emptied; the parser rejects a leftover `{}`.
     private void nested(int left, int content, int y, Spec spec) {
         JsonObject attack = JsonEdit.has(root, "attack") ? root.getAsJsonObject("attack") : new JsonObject();
         box(left, content, y, spec, JsonEdit.number(attack, spec.key()), typed -> {
@@ -343,8 +332,7 @@ public final class ProfessionEditorScreen extends Screen {
         });
     }
 
-    /// One labelled box: the name on the left carries the help, the box shows what the field falls
-    /// back to while it is empty, and the rest of the best matching id follows the cursor.
+    /// Registers a `Row`, so hovering the label, not the box, is what shows the help tooltip.
     private TextFieldWidget box(int left, int content, int y, Spec spec, String value,
                                 Consumer<String> onChange) {
         rows.add(new Row(spec.label(), spec.help(), left, y + 6, LABEL_WIDTH));
@@ -376,17 +364,14 @@ public final class ProfessionEditorScreen extends Screen {
         widget.setSuggestion(!last.isEmpty() && !hits.isEmpty() && hits.get(0).startsWith(last)
                 ? hits.get(0).substring(last.length()) : "");
 
-        // Red is only ever about a block that cannot be a workstation, which is the single mistake this
-        // screen can see coming on its own. Everything else stays the server's to judge.
+        // Red flags only an unusable workstation block; every other check stays the server's job.
         if (spec.source() != Source.FREE_BLOCK) {
             return;
         }
         String problem = "";
         if (!last.isEmpty()) {
             problem = EditorFields.ownerOf(last)
-                    // Its own block is not a problem. The check asks "is this taken" and has to ask
-                    // "by whom" as well: editing a profession that already exists means looking at the
-                    // block it owns, and painting that red says the one thing that is not wrong.
+                    // Excludes its own block, so editing an existing profession is not flagged red.
                     .filter(owner -> !owner.equals("datadrivenvillagers:" + fileName))
                     .map(owner -> last + " already belongs to " + owner + ". Pick another block - the "
                             + "list under the box leaves the taken ones out.")
@@ -400,11 +385,7 @@ public final class ProfessionEditorScreen extends Screen {
         }
     }
 
-    /// Not a field: the one thing on this screen that reaches past the profession file. It asks the
-    /// server to write the VillagerTradingPlus starting file into the world's own datapacks - the
-    /// same piece `/ddv scaffold` writes, carried to where the game reads it. The client checks
-    /// nothing here on purpose, like everywhere else on this screen: the server judges the name, the
-    /// file and the folder, and its answer lands in the report below.
+    /// The one action here reaching past the profession file: writes into the world's own datapacks.
     private void tradesButton(int left, int content, int y) {
         rows.add(new Row("Default trades", """
                 Writes the VillagerTradingPlus starting file for this profession
@@ -436,8 +417,7 @@ public final class ProfessionEditorScreen extends Screen {
         addDrawableChild((ClickableWidget) widget);
     }
 
-    /// Never throws on a value the file should not contain. `valueOf` would, and a typo in `hat` would
-    /// then close the editor instead of letting the author fix the typo in it.
+    /// Never throws on a bad value; `valueOf` would, closing the editor on a typo instead of letting it be corrected.
     private static <T extends Enum<T>> T pick(Class<T> type, String raw, T fallback) {
         for (T value : type.getEnumConstants()) {
             if (value.name().equalsIgnoreCase(raw)) {
@@ -462,8 +442,7 @@ public final class ProfessionEditorScreen extends Screen {
         clearAndInit();
     }
 
-    /// Only ever one of the two keys is in the file. Writing both is the one thing the parser rejects
-    /// outright, and a screen that could produce it would be teaching the author a mistake.
+    /// Only one of the two keys may be in the file; the parser rejects both at once, so this never writes both.
     private void applyFears(String list) {
         root.remove("flees_from");
         root.remove("flees_only_from");
@@ -502,8 +481,7 @@ public final class ProfessionEditorScreen extends Screen {
 
     private void updateSuggestions() {
         if (getFocused() != lastFocused) {
-            // A different box is a different question, so a list waved away in the last one is not
-            // still waved away in this one.
+            // A different box asks a different question, so a closed suggestion list reopens in this one.
             lastFocused = getFocused();
             suggestionsClosed = false;
         }
@@ -526,9 +504,7 @@ public final class ProfessionEditorScreen extends Screen {
         suggestionWidth = widget.getWidth();
     }
 
-    /// A click in the list puts that id into the box, replacing only the part being typed so the other
-    /// entries of a list survive. A click anywhere else closes it, which is what every other list in
-    /// this game does.
+    /// Replaces only the part being typed, so the rest of a comma list survives; elsewhere it closes the list.
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!suggestions.isEmpty()) {
@@ -602,10 +578,7 @@ public final class ProfessionEditorScreen extends Screen {
             }
         }
 
-        // Wrapped, not drawn as one line: the reload answer is a sentence, not a label, and the
-        // longest of them ran off the right edge of the screen where nobody could read the half that
-        // mattered - "only after the next restart". And clipped to its reserved strip: an answer
-        // with more lines than the strip holds used to climb up and paint over the rows.
+        // Clipped to its reserved strip, so a long reload answer never paints over the rows above.
         List<Wrapped> lines = wrapped(content);
         int reservedTop = height - 34 - STATUS_LINES * 10;
         int statusY = Math.max(reservedTop, height - 34 - lines.size() * 10);
@@ -658,8 +631,7 @@ public final class ProfessionEditorScreen extends Screen {
         }
     }
 
-    /// The world keeps running underneath. A profession is judged by what the villagers do with it,
-    /// and pausing the game would hide exactly that.
+    /// Judged by what villagers actually do; pausing the game would hide that.
     @Override
     public boolean shouldPause() {
         return false;

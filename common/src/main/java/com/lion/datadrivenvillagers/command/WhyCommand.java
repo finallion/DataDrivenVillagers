@@ -112,8 +112,7 @@ public final class WhyCommand {
         ServerCommandSource source = context.getSource();
         Identifier asked = IdentifierArgumentType.getIdentifier(context, "name");
 
-        // A bare word arrives as minecraft:<word>. Tried as typed, then in our namespace, then as a
-        // file name (how an override is listed). Same lookup as scaffold and export.
+        // A bare word arrives as minecraft:<word>; tried as typed, our namespace, then as file name.
         Optional<ProfessionDefinition> profession = ProfessionRegistry.get(asked)
                 .or(() -> ProfessionRegistry.get(ours(asked)))
                 .or(() -> ScaffoldCommand.find(asked.getPath()));
@@ -141,8 +140,7 @@ public final class WhyCommand {
 
     // ---------------------------------------------------------------- professions
 
-    /// Chain: profession registered, accepts a job site, job site in `acquirable_job_site`, a block
-    /// leads back to it.
+    /// Chain: profession registered, accepts a job site, job site in `acquirable_job_site`, a block leads back to it.
     static Report professionReport(ServerCommandSource source, ProfessionDefinition definition) {
         Report report = new Report();
         Identifier target = definition.target();
@@ -194,8 +192,7 @@ public final class WhyCommand {
         return finish(source, report, definition, poi);
     }
 
-    /// Reads POI_STATES_TO_TYPE, the map the sensor uses: on Fabric a point of interest registered
-    /// later silently takes the block state.
+    /// On Fabric, a later-registered point of interest silently takes over a block state in POI_STATES_TO_TYPE.
     private static void blocks(Report report, ProfessionDefinition definition,
                                RegistryEntry<PointOfInterestType> poi) {
         List<Identifier> declared = definition.isOverride()
@@ -256,8 +253,7 @@ public final class WhyCommand {
         return null;
     }
 
-    /// Verdict, then the facts the chain does not check: texture, hat, placed blocks, trades, gift,
-    /// items, plan, behaviour, ignored fields.
+    /// Extra facts appear below regardless of the verdict: even a broken profession gets them reported.
     private static Report finish(ServerCommandSource source, Report report, ProfessionDefinition definition,
                               RegistryEntry<PointOfInterestType> poi) {
         if (report.isBroken()) {
@@ -267,9 +263,7 @@ public final class WhyCommand {
             report.extra("job site", Text.literal(jobSiteOwner(definition.target(), poi))
                     .formatted(Formatting.GRAY));
         } else {
-            // Phrased about the profession; whether a block nearby is free is the `placed` line. The
-            // block is named here because it is the one thing a player has to go and place, and the
-            // job site's id is not something anyone can hold.
+            // Distinct from `placed` (free blocks); names the block, what a player must go place.
             List<String> blocks = poi == null ? List.of() : jobSiteBlocks(poi);
             report.verdict(true, blocks.isEmpty()
                     ? "Villagers can take this job wherever one of its blocks is free."
@@ -308,8 +302,7 @@ public final class WhyCommand {
     }
 
 
-    /// One line built from the fields the override sets (looks, behaviour, extra blocks). The job site
-    /// belongs to the overridden profession and is reported separately.
+    /// Summarizes what the override changes; the job site belongs to the overridden profession, reported separately.
     private static String overrideVerdict(ProfessionDefinition definition) {
         Identifier target = definition.target();
         List<String> does = new ArrayList<>();
@@ -333,10 +326,7 @@ public final class WhyCommand {
         return definition.name() + ".json changes how " + target + " " + and(does) + ".";
     }
 
-    /// `hat` decides whether the hat of the type texture underneath stays visible; vanilla's rule is
-    /// `typeHatVisible = profession == NONE || (profession == PARTIAL && type != FULL)`. In 1.21.8 only
-    /// `minecraft:desert` and `minecraft:snow` declare a hat (both `full`), and a runtime type texture
-    /// of ours has no `.png.mcmeta` and therefore none.
+    /// `hat` mirrors vanilla's rule: `typeHatVisible = profession == NONE || (profession == PARTIAL && type != FULL)`.
     private static void hat(Report report, ProfessionDefinition definition) {
         String does = switch (definition.hat()) {
             case NONE -> "the hat of the type texture underneath stays visible";
@@ -360,8 +350,7 @@ public final class WhyCommand {
         return target + "'s own" + blocksOf(poi) + ", so villagers take the job the way they always did";
     }
 
-    /// Blocks leading to the job site, from POI_STATES_TO_TYPE: the map the sensor reads, so a block
-    /// another mod took is not in here. The job site's own id says nothing to someone holding a block.
+    /// Blocks from POI_STATES_TO_TYPE, the sensor's map; a block another mod claimed is not listed here.
     private static List<String> jobSiteBlocks(RegistryEntry<PointOfInterestType> poi) {
         return PointOfInterestTypes.POI_STATES_TO_TYPE.entrySet().stream()
                 .filter(entry -> entry.getValue().value() == poi.value())
@@ -398,8 +387,7 @@ public final class WhyCommand {
                 .getInCircle(entry -> entry.value() == poi.value(), here, 48, PointOfInterestStorage.OccupationStatus.ANY)
                 .toList();
         if (stations.isEmpty()) {
-            // Names the block: this is the line a player reads when nothing happens, and "block of
-            // this job site" does not tell them what to go and place.
+            // Names the block so the player knows what to place; "block of this job site" would not say.
             List<String> blocks = jobSiteBlocks(poi);
             report.extra("placed", Text.literal("no "
                             + (blocks.isEmpty() ? "block of this job site" : shortList(blocks))
@@ -547,8 +535,7 @@ public final class WhyCommand {
 
     // ---------------------------------------------------------------- villager types
 
-    /// Chain: type registered, named biomes claimed (at startup), tagged biomes claimed (when tags are
-    /// bound). Reads `VillagerType.BIOME_TO_TYPE` live.
+    /// Chain: type registered, named biomes (startup), tagged biomes (tag bind); reads BIOME_TO_TYPE live.
     static Report typeReport(ServerCommandSource source, TypeDefinition definition) {
         Report report = new Report();
         report.header(definition.id(), "villager type, from " + definition.name() + ".json");
@@ -620,8 +607,7 @@ public final class WhyCommand {
         report.notes(notes);
     }
 
-    /// A tag claims only biomes nothing holds yet. A member still free means the tag hook did not run;
-    /// members held by others are normal.
+    /// A tag claims only free biomes; a member still free means its hook did not run (others holding it is normal).
     private static void biomeTags(Report report, TypeDefinition definition, RegistryKey<VillagerType> key,
                                   Registry<Biome> biomes) {
         if (definition.biomeTags().isEmpty()) {
@@ -676,8 +662,7 @@ public final class WhyCommand {
 
     // ---------------------------------------------------------------- structures
 
-    /// Chain: template readable, has a jigsaw block, is in the pools. A piece without a jigsaw block is
-    /// silently never placed.
+    /// Chain: template readable, has a jigsaw block, is in the pools; without one, a piece is silently never placed.
     static Report structureReport(ServerCommandSource source, StructureDefinition definition) {
         Report report = new Report();
         report.header(definition.id(), "structure, from " + definition.name() + ".json");
@@ -730,8 +715,7 @@ public final class WhyCommand {
         return report;
     }
 
-    /// A saved nbt that goes into all five village types keeps the material it was saved in; a
-    /// generated plot is drawn per village. Warns for the former.
+    /// A saved nbt keeps its saved material in every village type; a generated plot's material is redrawn per village.
     private static void villages(Report report, StructureDefinition definition) {
         if (!definition.pools().isEmpty()) {
             // Pools named outright are listed by the pool step.
@@ -818,8 +802,7 @@ public final class WhyCommand {
             return;
         }
 
-        // Resolved through ConfigFiles so this never answers "is there a file at" for a path outside
-        // the folder.
+        // Resolved through ConfigFiles so this never answers "is there a file at" for a path outside the folder.
         Optional<Path> png = ConfigFiles.resolveInside(folder, file.get()).filter(Files::isRegularFile);
         if (png.isEmpty()) {
             report.extra("texture", Text.literal(file.get() + "  NOT in " + folder)
@@ -827,8 +810,7 @@ public final class WhyCommand {
             return;
         }
 
-        // Both verdicts LookSync reaches, in its order, said here rather than only in the server log:
-        // an author looking at a villager in the missing texture has no other way to find out why.
+        // Both verdicts LookSync reaches, in order, shown here since an author cannot see the server log.
         Optional<String> refused = headerRejection(png.get());
         if (refused.isPresent()) {
             report.extra("texture", Text.literal(file.get() + "  " + refused.get()
@@ -836,8 +818,7 @@ public final class WhyCommand {
             return;
         }
 
-        // Not fatal: the image is fine, it is only too big to ship, so a player who installed the pack
-        // still sees it. Yellow, not red, and it says what the player needs.
+        // Not fatal: the image is fine, only too big to ship, so a player who installed the pack still sees it.
         OptionalLong tooLarge = oversize(png.get());
         if (tooLarge.isPresent()) {
             report.extra("texture", Text.literal(file.get() + "  " + tooLarge.getAsLong()

@@ -29,14 +29,10 @@ import java.util.Optional;
 /// every join and reload, no cache.
 public final class LookSync {
 
-    /// The hard limit is the packet frame: its length is a VarInt of at most three bytes, and a packet
-    /// above this throws in the encoder and drops the connection. Vanilla's one megabyte for custom
-    /// payloads applies to payloads the receiver does not know, not to ours.
+    /// 3-byte VarInt frame limit; vanilla's 1 MB cap covers only payloads the receiver does not know.
     static final int MAX_PACKET_BYTES = 2_097_151;
 
-    /// One {@link LookPayload} carries two images, so each is held to a size at which both still fit
-    /// with room to spare. A larger png is left out with a warning; the client falls back to its own
-    /// folder for that image.
+    /// One `LookPayload` carries two images, so this caps each one small enough that both still fit.
     public static final int MAX_PNG_BYTES = 900_000;
 
     /// Ids, hat, the optionals and the frame, generously.
@@ -67,8 +63,7 @@ public final class LookSync {
         Optional<byte[]> villager = bytes(folder, definition.textureFile(), definition.id());
         Optional<byte[]> zombie = bytes(folder, definition.zombieTextureFile(), definition.id());
 
-        // Each file is held to MAX_PNG_BYTES above, so two always fit today. This is the lock for the
-        // day one of the constants moves without the other.
+        // Guards the day MAX_PNG_BYTES and MAX_PACKET_BYTES change independently of each other.
         if (villager.isPresent() && zombie.isPresent()
                 && villager.get().length + zombie.get().length + PACKET_HEADROOM > MAX_PACKET_BYTES) {
             DataDrivenVillagers.LOGGER.warn("{}: villager and zombie image together do not fit one packet; "
@@ -98,10 +93,7 @@ public final class LookSync {
             return Optional.empty();
         }
         try {
-            // Same verdict the client reaches before decoding, so a file no client may use is never
-            // shipped, and the author reads why in the server log instead of in every client's. Asked
-            // before the size, because it is the worse of the two: an image no client draws is not
-            // helped by the player holding a copy. `/ddv why` reports them in this same order.
+            // Same verdict the client reaches before decoding, so it never receives a file it would refuse anyway.
             Optional<String> rejected = PngHeader.rejection(png);
             if (rejected.isPresent()) {
                 DataDrivenVillagers.LOGGER.warn("{} is {}; not sent to players, and a client refuses its "
@@ -133,11 +125,7 @@ public final class LookSync {
         return payloads.size() - 1;
     }
 
-    /// After a reload, to every player including the one who typed the command: in single player
-    /// this is how the integrated server's new png reaches the renderer. Built once: the images are
-    /// read from disk one time, not once per player.
-    ///
-    /// @return how many players were sent to
+    /// In single player, this is how the integrated server's new png reaches the client's own renderer.
     public static int broadcast(MinecraftServer server) {
         List<ServerPlayerEntity> players = server.getPlayerManager().getPlayerList();
         if (players.isEmpty()) {

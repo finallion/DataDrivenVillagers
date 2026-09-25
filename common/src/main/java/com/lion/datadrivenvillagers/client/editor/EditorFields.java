@@ -45,8 +45,7 @@ public final class EditorFields {
             this(key, label, shape, source, placeholder, help, false);
         }
 
-        /// The six fields that live in the `VillagerProfession` or `PointOfInterestType` record. A
-        /// reload cannot touch them.
+        /// Baked into `VillagerProfession`/`PointOfInterestType` at registration; a reload cannot reach them.
         Spec needsRestart() {
             return new Spec(key, label + " *", shape, source, placeholder,
                     help + "\n\nChanging this on a profession that already exists needs a restart: it "
@@ -187,10 +186,7 @@ public final class EditorFields {
 
     // ---- suggestions ----------------------------------------------------------------------------
 
-    /// Ids that match what has been typed so far, best first, at most a screenful.
-    ///
-    /// Matched on the path as well as on the whole id, because an author types `calcite` far more
-    /// often than `minecraft:calcite`, and a list that only answers the second is one that never opens.
+    /// Matches the path too, since `calcite` is typed far more often than `minecraft:calcite`.
     public static List<String> suggest(Source source, String typed) {
         String needle = lastPart(typed).toLowerCase(Locale.ROOT);
         List<String> starts = new ArrayList<>();
@@ -230,8 +226,7 @@ public final class EditorFields {
         };
     }
 
-    /// Every block no job site has claimed yet - the question `/ddv blocks` answers, asked while the
-    /// author types instead of after the reload.
+    /// Every block no job site has claimed yet, the same set `/ddv blocks` answers, computed while the author types.
     private static List<Identifier> freeBlocks() {
         if (freeBlocks == null) {
             List<Identifier> free = new ArrayList<>();
@@ -247,8 +242,7 @@ public final class EditorFields {
         return freeBlocks;
     }
 
-    /// Who already owns this block, if anybody. What turns "rejected on save" into a red value under
-    /// the cursor while there is still something to change.
+    /// Turns a rejected-on-save error into a red value while there is still time to fix it.
     public static Optional<String> ownerOf(String blockId) {
         Identifier id = Identifier.tryParse(blockId.trim());
         if (id == null) {
@@ -258,8 +252,7 @@ public final class EditorFields {
                 .flatMap(block -> ProfessionLoader.existingOwner(PointOfInterestTypes.getStatesOfBlock(block)));
     }
 
-    /// True for an id that names nothing in the block registry, so the screen can say so before the
-    /// save does.
+    /// True for an id absent from the block registry, so the screen can flag it before save does.
     public static boolean unknownBlock(String blockId) {
         Identifier id = Identifier.tryParse(blockId.trim());
         return id == null || Registries.BLOCK.getOptionalValue(id).isEmpty();

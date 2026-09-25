@@ -45,8 +45,7 @@ public final class ReloadCommand {
             return 0;
         }
 
-        // After all loaders. In single player this is how the integrated server's new png reaches
-        // the renderer.
+        // After all loaders: in single player this is how the integrated server's new png reaches the renderer.
         int players = LookSync.broadcast(source.getServer());
         outcomes.add(ReloadOutcome.updated("(looks)", "textures and hats sent to " + players + " player(s)"));
 

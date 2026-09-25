@@ -28,14 +28,12 @@ public final class TypeRegistry {
         definitions = CopyOnWrite.with(definitions, definition.id(), definition);
     }
 
-    /// Biome claims are not in here; they live in `VillagerType.BIOME_TO_TYPE` and are rewritten by
-    /// the loader on reload.
+    /// Biome claims live in `VillagerType.BIOME_TO_TYPE`, rewritten by the loader on reload.
     public static void replace(TypeDefinition definition) {
         definitions = CopyOnWrite.with(definitions, definition.id(), definition);
     }
 
-    /// The registry entry itself stays until a restart; with no biome pointing at it, no villager is
-    /// born with the type.
+    /// The registry entry stays until a restart; with no biome pointing at it, no villager gets the type.
     public static void remove(Identifier id) {
         definitions = CopyOnWrite.without(definitions, id);
     }

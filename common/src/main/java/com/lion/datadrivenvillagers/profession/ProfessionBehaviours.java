@@ -32,9 +32,7 @@ public final class ProfessionBehaviours {
         return of(profession).map(definition -> definition.workBehaviour() == WorkBehaviour.FARM).orElse(false);
     }
 
-    /// Run (true), do not run (false), or no opinion (empty, the sensor then asks vanilla's list).
-    /// `flees_from` only ever says yes; `flees_only_from` has the last word, so an unnamed entity is
-    /// a firm no.
+    /// `flees_only_from` has the last word, so an entity it does not name is a firm no, unlike `flees_from`.
     public static Optional<Boolean> fears(LivingEntity villager, LivingEntity other) {
         if (!(villager instanceof VillagerEntity entity)) {
             return Optional.empty();
@@ -70,9 +68,7 @@ public final class ProfessionBehaviours {
                 .findFirst();
     }
 
-    /// The `villages` check: only a profession whose file names them refuses, and only a villager type not among them.
-    ///
-    /// @return the reason it may not take the job, empty when it may
+    /// Refuses only when the profession's file names villager types and this type is not among them.
     public static Optional<String> refusal(VillagerEntity villager, RegistryEntry<PointOfInterestType> poi) {
         Optional<RegistryEntry.Reference<VillagerProfession>> profession = professionFor(poi);
         if (profession.isEmpty()) {
