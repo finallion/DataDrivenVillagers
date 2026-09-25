@@ -9,8 +9,11 @@ modId = "datadrivenvillagers"
 version = "${version}"
 displayName = "DataDrivenVillagers"
 authors = "Lion"
+logoFile = "assets/datadrivenvillagers/icon.png"
 description = '''
 Define villager professions in JSON: bind one to a workstation block, give it a texture, and let VillagerTradingPlus handle the trades.
+
+Support: https://www.patreon.com/cw/LithiumPlus
 '''
 
 # NeoForge reads mixin configs from here and nowhere else. Fabric picks them up from fabric.mod.json,
