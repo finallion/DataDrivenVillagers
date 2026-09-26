@@ -99,4 +99,38 @@ class ConfigFilesTest {
         // On Windows this walks up two folders; on Linux it is one odd file name inside the folder.
         ConfigFiles.resolveInside(FOLDER, ".." + BS + ".." + BS + "x.png");
     }
+
+    /// `"..."` is not caught by `isFileName`, since it stays inside the folder lexically.
+    @Test
+    void onlyDotNamesAreCaught() {
+        assertTrue(ConfigFiles.isOnlyDots("."));
+        assertTrue(ConfigFiles.isOnlyDots(".."));
+        assertTrue(ConfigFiles.isOnlyDots("...."));
+        assertFalse(ConfigFiles.isOnlyDots(""));
+        assertFalse(ConfigFiles.isOnlyDots("a.."));
+        assertFalse(ConfigFiles.isOnlyDots("baker.png"));
+    }
+
+    @Test
+    void windowsDeviceNamesAreCaughtWhateverFollowsTheDot() {
+        assertTrue(ConfigFiles.isWindowsDeviceName("con"));
+        assertTrue(ConfigFiles.isWindowsDeviceName("CON"));
+        assertTrue(ConfigFiles.isWindowsDeviceName("com1.json"));
+        assertTrue(ConfigFiles.isWindowsDeviceName("lpt9.json.tmp"));
+        assertFalse(ConfigFiles.isWindowsDeviceName("console"));
+        assertFalse(ConfigFiles.isWindowsDeviceName("com10"));
+        assertFalse(ConfigFiles.isWindowsDeviceName("baker.png"));
+    }
+
+    /// A datapack or zip entry path, not a file system path: `/` is always the separator, never `\`.
+    @Test
+    void unsafeSegmentsAreCaughtInADatapackOrZipPath() {
+        assertTrue(ConfigFiles.hasUnsafeSegment("datapack/data/../loot_table/evil.json"));
+        assertTrue(ConfigFiles.hasUnsafeSegment("datapack/data/./loot_table/evil.json"));
+        assertTrue(ConfigFiles.hasUnsafeSegment("datapack/data//loot_table/evil.json"));
+        assertTrue(ConfigFiles.hasUnsafeSegment("../evil.json"));
+        assertTrue(ConfigFiles.hasUnsafeSegment("evil.json/.."));
+        assertFalse(ConfigFiles.hasUnsafeSegment("datapack/data/datadrivenvillagers/loot_table/baker.json"));
+        assertFalse(ConfigFiles.hasUnsafeSegment("a..b/x.json"));
+    }
 }

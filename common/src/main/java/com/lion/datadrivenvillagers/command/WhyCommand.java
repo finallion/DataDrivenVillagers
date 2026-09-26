@@ -810,7 +810,7 @@ public final class WhyCommand {
         // Resolved through ConfigFiles so this never answers "is there a file at" for a path outside the folder.
         Optional<Path> png = ConfigFiles.resolveInside(folder, file.get()).filter(Files::isRegularFile);
         if (png.isEmpty()) {
-            report.extra("texture", Text.literal(file.get() + "  NOT in " + folder)
+            report.extra("texture", Text.literal(file.get() + "  NOT in " + ConfigFiles.relative(folder))
                     .formatted(Formatting.RED));
             return;
         }
@@ -840,7 +840,8 @@ public final class WhyCommand {
         try {
             return PngHeader.rejection(png);
         } catch (IOException e) {
-            return Optional.of("could not be read: " + e.getMessage());
+            DataDrivenVillagers.LOGGER.error("Could not read {}", png, e);
+            return Optional.of("could not be read, see the server log");
         }
     }
 

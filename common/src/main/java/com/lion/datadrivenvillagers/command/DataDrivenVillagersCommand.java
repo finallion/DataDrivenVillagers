@@ -1,5 +1,6 @@
 package com.lion.datadrivenvillagers.command;
 
+import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 import com.lion.datadrivenvillagers.profession.ProfessionRegistry;
@@ -74,7 +75,7 @@ public final class DataDrivenVillagersCommand {
         ServerCommandSource source = context.getSource();
         if (ProfessionRegistry.isEmpty() && TypeRegistry.isEmpty() && StructureRegistry.isEmpty()) {
             source.sendFeedback(() -> Text.literal("Nothing loaded. Files go into ")
-                    .append(Text.literal(ProfessionLoader.directory().getParent().toString())
+                    .append(Text.literal(ConfigFiles.relative(ProfessionLoader.directory().getParent()))
                             .formatted(Formatting.YELLOW)), false);
             return 0;
         }

@@ -408,10 +408,9 @@ public final class ProfessionEditorScreen extends Screen {
 
     /// Removes `attack` entirely when both fields are emptied; the parser rejects a leftover `{}`.
     private void nested(int left, int content, int y, Spec spec) {
-        JsonObject attack = JsonEdit.has(root, "attack") ? root.getAsJsonObject("attack") : new JsonObject();
+        JsonObject attack = JsonEdit.object(root, "attack");
         box(left, content, y, spec, JsonEdit.number(attack, spec.key()), typed -> {
-            JsonObject current = JsonEdit.has(root, "attack")
-                    ? root.getAsJsonObject("attack") : new JsonObject();
+            JsonObject current = JsonEdit.object(root, "attack");
             JsonEdit.setNumber(current, spec.key(), typed);
             if (current.keySet().isEmpty()) {
                 root.remove("attack");

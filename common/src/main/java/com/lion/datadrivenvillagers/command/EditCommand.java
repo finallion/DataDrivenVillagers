@@ -3,6 +3,7 @@ package com.lion.datadrivenvillagers.command;
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
+import com.lion.datadrivenvillagers.JsonDepth;
 import com.lion.datadrivenvillagers.ReloadOutcome;
 import com.lion.datadrivenvillagers.network.EditorOpenPayload;
 import com.lion.datadrivenvillagers.network.EditorResultPayload;
@@ -48,7 +49,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -63,6 +67,10 @@ public final class EditCommand {
 
     /// A profession id is the lower-cased file name; a case sensitive disk could then save two files under one id.
     private static final Pattern FILE_NAME = Pattern.compile("[a-z0-9_-]{1,64}");
+
+    private static final Map<UUID, Long> LAST_SAVE = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> LAST_TRADES = new ConcurrentHashMap<>();
+    private static final long SAVE_COOLDOWN_MILLIS = 2000L;
 
     /// Deliberately without a workstation.
     private static final String TEMPLATE = """
@@ -80,6 +88,7 @@ public final class EditCommand {
 
     public static LiteralArgumentBuilder<ServerCommandSource> node() {
         return CommandManager.literal("edit")
+                .requires(WriteAccess::allowed)
                 .executes(context -> open(context, ""))
                 .then(CommandManager.argument("profession", StringArgumentType.word())
                         .suggests(FILES)
@@ -114,12 +123,13 @@ public final class EditCommand {
         ServerPlayerEntity player = source.getPlayer();
         if (player == null) {
             source.sendError(Text.literal("The editor is a screen, so it needs a player to open it on. "
-                    + "From a console, edit the file in " + ProfessionLoader.directory() + " instead."));
+                    + "From a console, edit the file in " + ConfigFiles.relative(ProfessionLoader.directory())
+                    + " instead."));
             return 0;
         }
 
         String name = typed.toLowerCase(Locale.ROOT);
-        if (!name.isEmpty() && !FILE_NAME.matcher(name).matches()) {
+        if (!name.isEmpty() && (!FILE_NAME.matcher(name).matches() || ConfigFiles.isWindowsDeviceName(name))) {
             source.sendError(Text.literal("That cannot be a file name. Lower case letters, digits, "
                     + "underscore and dash only."));
             return 0;
@@ -131,8 +141,9 @@ public final class EditCommand {
             try {
                 json = Files.readString(existing.get(), StandardCharsets.UTF_8);
             } catch (IOException e) {
-                source.sendError(Text.literal("Could not read " + existing.get().getFileName() + ": "
-                        + e.getMessage()));
+                DataDrivenVillagers.LOGGER.error("Could not read {}", existing.get(), e);
+                source.sendError(Text.literal("Could not read " + existing.get().getFileName()
+                        + " - see the server log."));
                 return 0;
             }
         }
@@ -183,14 +194,19 @@ public final class EditCommand {
 
     /// Parses before writing, so a file the loader would reject never replaces a working profession on disk.
     public static void save(ServerPlayerEntity player, EditorSavePayload payload) {
-        if (!player.hasPermissionLevel(2)) {
+        if (!WriteAccess.allowed(player)) {
             reply(player, false, List.of(EditorResultPayload.bad(
                     "You are not allowed to edit professions on this server.")));
             return;
         }
+        if (throttled(LAST_SAVE, player)) {
+            reply(player, false, List.of(EditorResultPayload.bad(
+                    "Saving too fast, wait a moment and try again.")));
+            return;
+        }
 
         String name = payload.fileName().toLowerCase(Locale.ROOT);
-        if (!FILE_NAME.matcher(name).matches()) {
+        if (!FILE_NAME.matcher(name).matches() || ConfigFiles.isWindowsDeviceName(name)) {
             reply(player, false, List.of(EditorResultPayload.bad("That cannot be a file name. Lower case "
                     + "letters, digits, underscore and dash only.")));
             return;
@@ -210,7 +226,13 @@ public final class EditCommand {
         try {
             root = JsonParser.parseString(payload.json()).getAsJsonObject();
         } catch (JsonSyntaxException | IllegalStateException e) {
-            reply(player, false, List.of(EditorResultPayload.bad("Not readable as json: " + e.getMessage())));
+            reply(player, false, List.of(EditorResultPayload.bad("Not readable as json: "
+                    + DefinitionParseException.readableReason(e))));
+            return;
+        }
+        if (JsonDepth.exceeds(root, JsonDepth.MAX_DEPTH)) {
+            reply(player, false, List.of(EditorResultPayload.bad(
+                    "That json nests too deep, flatten it before saving.")));
             return;
         }
 
@@ -218,7 +240,7 @@ public final class EditCommand {
         try {
             definition = ProfessionParser.parse(name, root);
         } catch (DefinitionParseException e) {
-            reply(player, false, List.of(EditorResultPayload.bad(e.getMessage()),
+            reply(player, false, List.of(EditorResultPayload.bad(DefinitionParseException.readableReason(e)),
                     EditorResultPayload.bad("Nothing was written, the file on disk is unchanged.")));
             return;
         }
@@ -237,10 +259,12 @@ public final class EditCommand {
             // Through a temporary file, so a crash mid-write cannot leave a json that fails at the next start.
             ConfigFiles.writeAtomically(file, payload.json());
         } catch (IOException e) {
+            DataDrivenVillagers.LOGGER.error("Could not write {}", file, e);
             reply(player, false, List.of(EditorResultPayload.bad(
-                    "Could not write " + file.getFileName() + ": " + e.getMessage())));
+                    "Could not write " + file.getFileName() + " - see the server log.")));
             return;
         }
+        accepted(LAST_SAVE, player);
 
         List<Note> notes = reload(player.getServer(), name, file.getFileName().toString(), existed);
         tradeCount(definition, notes);
@@ -269,14 +293,19 @@ public final class EditCommand {
 
     /// Writes the VillagerTradingPlus starting file for this profession into the world's own datapacks.
     public static void trades(ServerPlayerEntity player, EditorTradesPayload payload) {
-        if (!player.hasPermissionLevel(2)) {
+        if (!WriteAccess.allowed(player)) {
             reply(player, false, List.of(EditorResultPayload.bad(
                     "You are not allowed to edit professions on this server.")));
             return;
         }
+        if (throttled(LAST_TRADES, player)) {
+            reply(player, false, List.of(EditorResultPayload.bad(
+                    "Saving too fast, wait a moment and try again.")));
+            return;
+        }
 
         String name = payload.fileName().toLowerCase(Locale.ROOT);
-        if (!FILE_NAME.matcher(name).matches()) {
+        if (!FILE_NAME.matcher(name).matches() || ConfigFiles.isWindowsDeviceName(name)) {
             reply(player, false, List.of(EditorResultPayload.bad("That cannot be a file name. Lower case "
                     + "letters, digits, underscore and dash only.")));
             return;
@@ -294,10 +323,16 @@ public final class EditCommand {
         try {
             definition = ProfessionParser.parse(name, JsonParser.parseString(
                     Files.readString(file.get(), StandardCharsets.UTF_8)).getAsJsonObject());
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException e) {
+            DataDrivenVillagers.LOGGER.error("Could not read {}", file.get(), e);
+            reply(player, false, List.of(
+                    EditorResultPayload.bad("Cannot read " + file.get().getFileName() + " - see the server log."),
+                    EditorResultPayload.bad("Fix the profession and save it, then try again.")));
+            return;
+        } catch (RuntimeException e) {
             reply(player, false, List.of(
                     EditorResultPayload.bad("Cannot build trades from " + file.get().getFileName() + ": "
-                            + e.getMessage()),
+                            + DefinitionParseException.readableReason(e)),
                     EditorResultPayload.bad("Fix the profession and save it, then try again.")));
             return;
         }
@@ -332,10 +367,12 @@ public final class EditCommand {
             }
             ConfigFiles.writeAtomically(target, piece.content());
         } catch (IOException e) {
+            DataDrivenVillagers.LOGGER.error("Could not write {}", target, e);
             reply(player, false, List.of(EditorResultPayload.bad(
-                    "Could not write into the world's datapacks folder: " + e.getMessage())));
+                    "Could not write into the world's datapacks folder - see the server log.")));
             return;
         }
+        accepted(LAST_TRADES, player);
 
         List<Note> notes = new ArrayList<>();
         notes.add(EditorResultPayload.ok("Wrote " + name + ".json into this world's datapacks/"
@@ -395,6 +432,19 @@ public final class EditCommand {
         // Broadcast without a chat line; it was the least important note on a screen short of room.
         LookSync.broadcast(server);
         return notes;
+    }
+
+    /// True when this player's last accepted request of this kind was too recent; also drops stale entries.
+    private static boolean throttled(Map<UUID, Long> lastAccepted, ServerPlayerEntity player) {
+        long now = System.currentTimeMillis();
+        lastAccepted.entrySet().removeIf(entry -> now - entry.getValue() >= SAVE_COOLDOWN_MILLIS);
+        Long last = lastAccepted.get(player.getUuid());
+        return last != null && now - last < SAVE_COOLDOWN_MILLIS;
+    }
+
+    /// Marks now as the last accepted request of this kind; only once the payload was written to disk.
+    private static void accepted(Map<UUID, Long> lastAccepted, ServerPlayerEntity player) {
+        lastAccepted.put(player.getUuid(), System.currentTimeMillis());
     }
 
     private static void reply(ServerPlayerEntity player, boolean ok, List<Note> notes) {

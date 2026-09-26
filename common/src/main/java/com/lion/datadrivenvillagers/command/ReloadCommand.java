@@ -27,7 +27,9 @@ public final class ReloadCommand {
     }
 
     public static LiteralArgumentBuilder<ServerCommandSource> node() {
-        return CommandManager.literal("reload").executes(Framed.framed(ReloadCommand::reload));
+        return CommandManager.literal("reload")
+                .requires(WriteAccess::allowed)
+                .executes(Framed.framed(ReloadCommand::reload));
     }
 
     private static int reload(CommandContext<ServerCommandSource> context) {

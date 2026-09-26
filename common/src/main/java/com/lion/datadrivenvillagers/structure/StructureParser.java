@@ -24,6 +24,7 @@ public final class StructureParser {
 
     private static final String DEFAULT_POOL = "houses";
     private static final int DEFAULT_WEIGHT = 1;
+    private static final int MAX_WEIGHT = 150;
     private static final String EXTENSION = ".nbt";
 
     private StructureParser() {
@@ -54,6 +55,9 @@ public final class StructureParser {
         file.ifPresent(name -> ConfigFiles.requireFileName(name, "structure"));
 
         int weight = JsonFields.positiveInt(root, "weight", DEFAULT_WEIGHT);
+        if (weight > MAX_WEIGHT) {
+            throw new DefinitionParseException("\"weight\" must be at most " + MAX_WEIGHT + ", got " + weight);
+        }
 
         List<Identifier> pools = JsonFields.identifiers(root, "pools", false);
         List<String> villages = JsonFields.strings(root, "villages");

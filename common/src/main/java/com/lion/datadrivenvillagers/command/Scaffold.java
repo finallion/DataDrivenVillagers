@@ -1,6 +1,12 @@
 package com.lion.datadrivenvillagers.command;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
+import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 import com.lion.datadrivenvillagers.structure.PlotGenerator;
@@ -26,6 +32,8 @@ public final class Scaffold {
     private static final String GIFT = "gift.json";
     private static final String LANG = "en_us.json";
 
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+
     private Scaffold() {
     }
 
@@ -35,16 +43,25 @@ public final class Scaffold {
     public record Piece(String file, String destination, String content) {
     }
 
-    public static Path folderFor(ProfessionDefinition definition) {
-        return ProfessionLoader.directory().resolve(FOLDER).resolve(definition.name());
+    /// Empty for a name that is only dots, a Windows device name, or does not resolve inside `scaffold/`.
+    public static Optional<Path> folderFor(ProfessionDefinition definition) {
+        String name = definition.name();
+        if (ConfigFiles.isOnlyDots(name) || ConfigFiles.isWindowsDeviceName(name)) {
+            return Optional.empty();
+        }
+        return ConfigFiles.resolveInside(ProfessionLoader.directory().resolve(FOLDER), name);
     }
 
     public static List<Piece> pieces(ProfessionDefinition definition) {
         Identifier gift = giftId(definition);
+        String giftDestination = "datapack/data/" + gift.getNamespace() + "/loot_tables/" + gift.getPath() + ".json";
+        if (ConfigFiles.hasUnsafeSegment(giftDestination)) {
+            throw new DefinitionParseException("\"gift\" names " + gift + ", which cannot be turned into a "
+                    + "datapack path: no empty, \".\" or \"..\" segment in the namespace or the path");
+        }
         return List.of(
                 tradesPiece(definition),
-                new Piece(GIFT, "datapack/data/" + gift.getNamespace()
-                        + "/loot_tables/" + gift.getPath() + ".json", gift(definition)),
+                new Piece(GIFT, giftDestination, gift(definition)),
                 new Piece(LANG, "resourcepack/assets/minecraft/lang/" + LANG, lang(definition)));
     }
 
@@ -103,35 +120,35 @@ public final class Scaffold {
         String item = definition.gatherable().isEmpty()
                 ? "minecraft:bread"
                 : definition.gatherable().get(0).toString();
-        return """
-                {
-                  "_comment": "Thrown at a player with Hero of the Village after a raid. The profession file has to name this table in its gift field.",
-                  "type": "minecraft:gift",
-                  "random_sequence": "%s",
-                  "pools": [
-                    {
-                      "rolls": 1.0,
-                      "bonus_rolls": 0.0,
-                      "entries": [
-                        {
-                          "type": "minecraft:item",
-                          "name": "%s"
-                        }
-                      ]
-                    }
-                  ]
-                }
-                """.formatted(id, item);
+
+        JsonObject entry = new JsonObject();
+        entry.addProperty("type", "minecraft:item");
+        entry.addProperty("name", item);
+        JsonArray entries = new JsonArray();
+        entries.add(entry);
+
+        JsonObject pool = new JsonObject();
+        pool.addProperty("rolls", 1.0);
+        pool.addProperty("bonus_rolls", 0.0);
+        pool.add("entries", entries);
+        JsonArray pools = new JsonArray();
+        pools.add(pool);
+
+        JsonObject json = new JsonObject();
+        json.addProperty("_comment", "Thrown at a player with Hero of the Village after a raid. The "
+                + "profession file has to name this table in its gift field.");
+        json.addProperty("type", "minecraft:gift");
+        json.addProperty("random_sequence", id.toString());
+        json.add("pools", pools);
+        return GSON.toJson(json) + "\n";
     }
 
     /// Written even with `display_name` set: that is only the fallback for a missing translation, not a substitute.
     private static String lang(ProfessionDefinition definition) {
         String name = definition.displayName().orElseGet(() -> readable(definition.target().getPath()));
-        return """
-                {
-                  "%s": "%s"
-                }
-                """.formatted(translationKey(definition), name);
+        JsonObject json = new JsonObject();
+        json.addProperty(translationKey(definition), name);
+        return GSON.toJson(json) + "\n";
     }
 
     private static String readable(String path) {
@@ -205,13 +222,11 @@ public final class Scaffold {
     }
 
     private static String packMeta(int format, String description) {
-        return """
-                {
-                  "pack": {
-                    "pack_format": %d,
-                    "description": "%s"
-                  }
-                }
-                """.formatted(format, description);
+        JsonObject pack = new JsonObject();
+        pack.addProperty("pack_format", format);
+        pack.addProperty("description", description);
+        JsonObject json = new JsonObject();
+        json.add("pack", pack);
+        return GSON.toJson(json) + "\n";
     }
 }

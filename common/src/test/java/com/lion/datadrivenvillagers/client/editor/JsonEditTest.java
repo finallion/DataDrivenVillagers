@@ -125,6 +125,27 @@ class JsonEditTest {
         assertEquals("", EditorFields.lastPart("minecraft:calcite, "));
     }
 
+    /// A field of the wrong shape must show something rather than crash the screen that would let it be fixed.
+    @Test
+    void aFieldOfTheWrongShapeIsShownRatherThanThrown() {
+        JsonObject root = parse("""
+                { "workstation": { "not": "a list" }, "health": ["not", "a number"], "gift": [1, 2] }
+                """);
+
+        assertEquals("{\"not\":\"a list\"}", JsonEdit.list(root, "workstation"));
+        assertEquals("[\"not\",\"a number\"]", JsonEdit.number(root, "health"));
+        assertEquals("1, 2", JsonEdit.list(root, "gift"));
+    }
+
+    @Test
+    void anObjectFieldOfAnotherTypeReadsAsEmpty() {
+        JsonObject root = JsonParser.parseString("{\"attack\": 5}").getAsJsonObject();
+
+        assertEquals(0, JsonEdit.object(root, "attack").size());
+        assertEquals(0, JsonEdit.object(root, "missing").size());
+        assertEquals(5, root.get("attack").getAsInt());
+    }
+
     /// Whatever the editor assembles must pass the same parser a hand-written file would meet.
     @Test
     void whatItBuildsIsAFileTheParserTakes() {
