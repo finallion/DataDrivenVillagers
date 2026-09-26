@@ -59,7 +59,7 @@ public final class StructureLoader {
                 new IllegalStateException(definition.id() + " is a generated plot and has no file"));
         return ConfigFiles.resolveInside(directory(), name).orElseThrow(() ->
                 new DefinitionParseException("\"structure\" names \"" + name
-                        + "\", which is not a file inside " + directory()));
+                        + "\", which is not a file inside " + ConfigFiles.relative(directory())));
     }
 
     /// Re-runnable: a previous run's elements are removed before this one adds its own.
@@ -228,7 +228,7 @@ public final class StructureLoader {
             // Checked at load: a missing file at generation time would leave a hole in a village.
             if (!definition.generated() && !Files.isRegularFile(fileOf(definition))) {
                 throw new DefinitionParseException("\"structure\" names " + definition.file().get()
-                        + ", which is not a file in " + directory());
+                        + ", which is not a file in " + ConfigFiles.relative(directory()));
             }
             // The template reader turns an unknown block into air silently; the block registry is complete by now.
             if (definition.generated() && !Registries.BLOCK.containsId(definition.workstation().get())) {

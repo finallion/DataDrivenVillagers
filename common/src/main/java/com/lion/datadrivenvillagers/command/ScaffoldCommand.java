@@ -2,6 +2,7 @@ package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
+import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionRegistry;
 
@@ -41,6 +42,7 @@ public final class ScaffoldCommand {
 
     public static LiteralArgumentBuilder<ServerCommandSource> node() {
         return CommandManager.literal("scaffold")
+                .requires(WriteAccess::allowed)
                 .then(CommandManager.argument("profession", StringArgumentType.word())
                         .suggests(LOADED)
                         .executes(Framed.framed(ScaffoldCommand::scaffold)));
@@ -58,16 +60,31 @@ public final class ScaffoldCommand {
         }
         ProfessionDefinition definition = found.get();
 
-        Path folder = Scaffold.folderFor(definition);
+        Optional<Path> resolved = Scaffold.folderFor(definition);
+        if (resolved.isEmpty()) {
+            source.sendError(Text.literal("\"" + definition.name() + "\" is not a name /ddv scaffold "
+                    + "can use for a folder."));
+            return 0;
+        }
+        Path folder = resolved.get();
+        List<Scaffold.Piece> pieces;
+        try {
+            pieces = Scaffold.pieces(definition);
+        } catch (DefinitionParseException e) {
+            source.sendError(Text.literal(e.getMessage()));
+            return 0;
+        }
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
-            source.sendError(Text.literal("Could not create " + folder + ": " + e.getMessage()));
+            DataDrivenVillagers.LOGGER.error("Could not create {}", folder, e);
+            source.sendError(Text.literal("Could not create " + ConfigFiles.relative(folder)
+                    + " - see the server log."));
             return 0;
         }
 
         int written = 0;
-        for (Scaffold.Piece piece : Scaffold.pieces(definition)) {
+        for (Scaffold.Piece piece : pieces) {
             Path target = folder.resolve(piece.file());
             if (Files.exists(target)) {
                 source.sendFeedback(() -> Text.literal("kept  ").formatted(Formatting.DARK_GRAY)
@@ -91,7 +108,7 @@ public final class ScaffoldCommand {
             return written;
         }
 
-        source.sendFeedback(() -> Text.literal(folder.toString()).formatted(Formatting.YELLOW)
+        source.sendFeedback(() -> Text.literal(ConfigFiles.relative(folder)).formatted(Formatting.YELLOW)
                 .append(Text.literal("  edit these, then /ddv export " + definition.name()
                         + " puts them into one zip.").formatted(Formatting.GRAY)), false);
         return written;
@@ -116,7 +133,9 @@ public final class ScaffoldCommand {
             try {
                 NbtIo.writeCompressed(plot.get(), nbt);
             } catch (IOException e) {
-                source.sendError(Text.literal("Could not write " + nbt + ": " + e.getMessage()));
+                DataDrivenVillagers.LOGGER.error("Could not write {}", nbt, e);
+                source.sendError(Text.literal("Could not write " + ConfigFiles.relative(nbt)
+                        + " - see the server log."));
                 return written;
             }
             written++;
@@ -160,7 +179,9 @@ public final class ScaffoldCommand {
             ConfigFiles.writeAtomically(target, content);
             return true;
         } catch (IOException e) {
-            source.sendError(Text.literal("Could not write " + target + ": " + e.getMessage()));
+            DataDrivenVillagers.LOGGER.error("Could not write {}", target, e);
+            source.sendError(Text.literal("Could not write " + ConfigFiles.relative(target)
+                    + " - see the server log."));
             return false;
         }
     }

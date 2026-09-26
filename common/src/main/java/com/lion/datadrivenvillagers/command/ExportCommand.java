@@ -2,6 +2,7 @@ package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
+import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 import com.lion.datadrivenvillagers.profession.ProfessionRegistry;
@@ -20,6 +21,7 @@ import net.minecraft.util.Formatting;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +48,7 @@ public final class ExportCommand {
 
     public static LiteralArgumentBuilder<ServerCommandSource> node() {
         return CommandManager.literal(FOLDER)
+                .requires(WriteAccess::allowed)
                 .then(CommandManager.argument("profession", StringArgumentType.word())
                         .suggests(LOADED)
                         .executes(Framed.framed(ExportCommand::export)));
@@ -69,12 +72,18 @@ public final class ExportCommand {
         }
 
         ProfessionDefinition definition = found.get();
+        if (ConfigFiles.isOnlyDots(definition.name()) || ConfigFiles.isWindowsDeviceName(definition.name())) {
+            source.sendError(Text.literal("\"" + definition.name() + "\" is not a name /ddv export can use."));
+            return 0;
+        }
+
         Path professions = ProfessionLoader.directory();
-        Path json = professions.resolve(definition.name() + ".json");
-        if (!Files.isRegularFile(json)) {
-            // Loaded but deleted from disk since.
-            source.sendError(Text.literal(json + " is gone, so there is nothing to export. The "
-                    + "profession stays loaded until the game restarts."));
+        Path json = ConfigFiles.resolveInside(professions, definition.name() + ".json").orElse(null);
+        if (json == null || !Files.isRegularFile(json, LinkOption.NOFOLLOW_LINKS)) {
+            // Loaded but deleted from disk since, or replaced by a symlink.
+            source.sendError(Text.literal(ConfigFiles.relative(professions.resolve(definition.name() + ".json"))
+                    + " is gone, so there is nothing to export. The profession stays loaded until the "
+                    + "game restarts."));
             return 0;
         }
 
@@ -83,6 +92,8 @@ public final class ExportCommand {
         List<Included> included = new ArrayList<>();
 
         try {
+            // Throws on an unsafe id before the old zip is replaced.
+            Scaffold.pieces(definition);
             Files.createDirectories(folder);
             // Overwritten: a zip is built from the parts, never edited in place.
             try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(zip), StandardCharsets.UTF_8)) {
@@ -96,7 +107,13 @@ public final class ExportCommand {
                 write(out, README, readme(definition, included));
             }
         } catch (IOException e) {
-            source.sendError(Text.literal("Could not write " + zip + ": " + e.getMessage()));
+            DataDrivenVillagers.LOGGER.error("Could not write {}", zip, e);
+            source.sendError(Text.literal("Could not write " + ConfigFiles.relative(zip)
+                    + " - see the server log."));
+            return 0;
+        } catch (DefinitionParseException e) {
+            DataDrivenVillagers.LOGGER.error("Could not export {}: {}", definition.name(), e.getMessage());
+            source.sendError(Text.literal(e.getMessage()));
             return 0;
         }
 
@@ -117,7 +134,7 @@ public final class ExportCommand {
         if (file.isPresent()) {
             // Through ConfigFiles, so no zip ever carries a file from outside the folder.
             Optional<Path> png = ConfigFiles.resolveInside(professions, file.get())
-                    .filter(Files::isRegularFile);
+                    .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS));
             if (png.isPresent()) {
                 copy(out, CONFIG + file.get(), png.get());
                 included.add(new Included(CONFIG + file.get(), true, "the texture named in the json"));
@@ -139,14 +156,14 @@ public final class ExportCommand {
 
     private static void scaffolded(ZipOutputStream out, ProfessionDefinition definition,
                                    List<Included> included) throws IOException {
-        Path scaffold = Scaffold.folderFor(definition);
+        Optional<Path> scaffold = Scaffold.folderFor(definition);
         for (Scaffold.Piece piece : Scaffold.pieces(definition)) {
-            Path edited = scaffold.resolve(piece.file());
-            boolean own = Files.isRegularFile(edited);
-            write(out, piece.destination(), own
-                    ? Files.readString(edited, StandardCharsets.UTF_8)
+            Optional<Path> edited = scaffold.map(path -> path.resolve(piece.file()))
+                    .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS));
+            write(out, piece.destination(), edited.isPresent()
+                    ? Files.readString(edited.get(), StandardCharsets.UTF_8)
                     : piece.content());
-            included.add(new Included(piece.destination(), own, own
+            included.add(new Included(piece.destination(), edited.isPresent(), edited.isPresent()
                     ? "yours, from " + Scaffold.FOLDER + "/" + definition.name() + "/" + piece.file()
                     : "a starting point written just now, which nobody has looked at yet"));
         }
@@ -166,7 +183,7 @@ public final class ExportCommand {
                 .append(DataDrivenVillagersCommand.tradeStatus(definition)), false);
 
         source.sendFeedback(() -> Text.literal("Wrote ").formatted(Formatting.GREEN)
-                .append(Text.literal(zip.toString()).formatted(Formatting.YELLOW)), false);
+                .append(Text.literal(ConfigFiles.relative(zip)).formatted(Formatting.YELLOW)), false);
 
         long guessed = included.stream().filter(entry -> !entry.real()).count();
         if (guessed > 0) {
@@ -215,14 +232,24 @@ public final class ExportCommand {
     }
 
     private static void write(ZipOutputStream out, String path, String content) throws IOException {
+        requireSafePath(path);
         out.putNextEntry(new ZipEntry(path));
         out.write(content.getBytes(StandardCharsets.UTF_8));
         out.closeEntry();
     }
 
     private static void copy(ZipOutputStream out, String path, Path file) throws IOException {
+        requireSafePath(path);
         out.putNextEntry(new ZipEntry(path));
         Files.copy(file, out);
         out.closeEntry();
+    }
+
+    /// Last line of defense: whatever built `path`, an empty, "." or ".." segment must not reach the zip.
+    private static void requireSafePath(String path) {
+        if (ConfigFiles.hasUnsafeSegment(path)) {
+            throw new DefinitionParseException("Cannot put \"" + path + "\" into the zip: an empty, "
+                    + "\".\" or \"..\" segment would let it escape the folder it is unpacked into");
+        }
     }
 }

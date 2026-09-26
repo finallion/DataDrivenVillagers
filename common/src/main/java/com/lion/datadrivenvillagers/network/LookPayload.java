@@ -61,9 +61,9 @@ public record LookPayload(
                 buf.readIdentifier(),
                 buf.readEnumConstant(HatKind.class),
                 buf.readOptional(PacketByteBuf::readIdentifier),
-                buf.readOptional(b -> b.readByteArray()),
+                buf.readOptional(b -> b.readByteArray(LookSync.MAX_PNG_BYTES)),
                 buf.readOptional(PacketByteBuf::readIdentifier),
-                buf.readOptional(b -> b.readByteArray()));
+                buf.readOptional(b -> b.readByteArray(LookSync.MAX_PNG_BYTES)));
     }
 
     @Override

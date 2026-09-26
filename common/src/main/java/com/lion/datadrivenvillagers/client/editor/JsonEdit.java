@@ -28,7 +28,7 @@ public final class JsonEdit {
 
     public static String text(JsonObject root, String key) {
         JsonElement element = root.get(key);
-        return element == null || element.isJsonNull() ? "" : element.getAsString();
+        return element == null || element.isJsonNull() ? "" : safeString(element);
     }
 
     public static void setText(JsonObject root, String key, String value) {
@@ -45,9 +45,16 @@ public final class JsonEdit {
         if (element == null || element.isJsonNull()) {
             return "";
         }
-        double value = element.getAsDouble();
-        // Whole numbers read back as 3, not 3.0, so open-and-save does not rewrite the file.
-        return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
+        if (!element.isJsonPrimitive()) {
+            return safeString(element);
+        }
+        try {
+            double value = element.getAsDouble();
+            // Whole numbers read back as 3, not 3.0, so open-and-save does not rewrite the file.
+            return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
+        } catch (NumberFormatException e) {
+            return element.getAsString();
+        }
     }
 
     public static void setNumber(JsonObject root, String key, String value) {
@@ -74,11 +81,11 @@ public final class JsonEdit {
             return "";
         }
         if (!element.isJsonArray()) {
-            return element.getAsString();
+            return safeString(element);
         }
         List<String> parts = new ArrayList<>();
         for (JsonElement entry : element.getAsJsonArray()) {
-            parts.add(entry.getAsString());
+            parts.add(safeString(entry));
         }
         return String.join(SEPARATOR, parts);
     }
@@ -103,7 +110,7 @@ public final class JsonEdit {
     public static String ranges(JsonObject root, String key) {
         JsonElement element = root.get(key);
         if (element == null || element.isJsonNull() || !element.isJsonArray()) {
-            return element == null || element.isJsonNull() ? "" : element.getAsString();
+            return element == null || element.isJsonNull() ? "" : safeString(element);
         }
         List<String> parts = new ArrayList<>();
         for (JsonElement entry : element.getAsJsonArray()) {
@@ -113,7 +120,7 @@ public final class JsonEdit {
                 String distance = number(object, "distance");
                 parts.add(distance.isEmpty() ? entity : entity + RANGE + distance);
             } else {
-                parts.add(entry.getAsString());
+                parts.add(safeString(entry));
             }
         }
         return String.join(SEPARATOR, parts);
@@ -180,6 +187,16 @@ public final class JsonEdit {
 
     public static boolean has(JsonObject root, String key) {
         return root.has(key) && !root.get(key).isJsonNull();
+    }
+
+    /// A missing key or a value of another type gives a new, detached object.
+    public static JsonObject object(JsonObject root, String key) {
+        return root.get(key) instanceof JsonObject object ? object : new JsonObject();
+    }
+
+    /// A value the box has no shape for is shown as its raw json instead of throwing.
+    private static String safeString(JsonElement element) {
+        return element.isJsonPrimitive() ? element.getAsString() : element.toString();
     }
 
     /// Key present with an empty array: for {@code flees_only_from} that means "fears nothing".
