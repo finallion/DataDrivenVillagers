@@ -1,5 +1,6 @@
 package com.lion.datadrivenvillagers.neoforge.mixin;
 
+import com.lion.datadrivenvillagers.hook.OptionalHooks;
 import com.lion.datadrivenvillagers.profession.ProfessionBehaviours;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
@@ -18,9 +19,10 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(GiveGiftsToHeroTask.class)
 public abstract class RaidHeroGiftMixin {
 
-    @ModifyExpressionValue(method = "getGifts", at = @At(value = "INVOKE",
+    @ModifyExpressionValue(method = "getGifts", require = 0, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/registry/entry/RegistryEntry;getData(Lnet/neoforged/neoforge/registries/datamaps/DataMapType;)Ljava/lang/Object;"))
     private Object datadrivenvillagers$gift(Object original, VillagerEntity villager) {
+        OptionalHooks.confirmGift();
         return ProfessionBehaviours.of(villager).flatMap(ProfessionDefinition::gift)
                 .<Object>map(id -> new RaidHeroGift(RegistryKey.of(RegistryKeys.LOOT_TABLE, id)))
                 .orElse(original);

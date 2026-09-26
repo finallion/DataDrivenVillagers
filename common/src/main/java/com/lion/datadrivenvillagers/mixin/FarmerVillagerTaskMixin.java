@@ -1,5 +1,6 @@
 package com.lion.datadrivenvillagers.mixin;
 
+import com.lion.datadrivenvillagers.hook.OptionalHooks;
 import com.lion.datadrivenvillagers.profession.ProfessionBehaviours;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 
@@ -16,9 +17,11 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class FarmerVillagerTaskMixin {
 
     @ModifyExpressionValue(method = "shouldRun(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/VillagerEntity;)Z",
+            require = 0,
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/village/VillagerData;getProfession()Lnet/minecraft/village/VillagerProfession;"))
     private VillagerProfession datadrivenvillagers$countsAsFarmer(VillagerProfession original) {
+        OptionalHooks.confirmFarmerWorkBehaviour();
         return ProfessionBehaviours.countsAsFarmer(original) ? VillagerProfession.FARMER : original;
     }
 }

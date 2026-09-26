@@ -22,7 +22,8 @@
     ]
   },
   "mixins": [
-    "datadrivenvillagers-common.mixins.json"
+    "datadrivenvillagers-common.mixins.json",
+    "datadrivenvillagers-fabric.mixins.json"
   ],
 
   "depends": {
