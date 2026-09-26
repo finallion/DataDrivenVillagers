@@ -68,7 +68,7 @@ and hats are sent to each player on join, so only missing files cause problems, 
 | `flees_only_from` | the complete list instead of vanilla's; `[]` fears nothing on sight |
 | `attacks` | entity types the villager goes after, see below |
 | `attack` | `{ "damage": 2, "cooldown": 20 }`, only with `attacks` |
-| `health` | max health, default 20. Applied whenever the brain is built, so it follows a job change and a reload |
+| `health` | max health, default 20. Applied whenever the brain is built, so it follows a job change and a reload. It is added on top of the villager's base value, so a change by another mod or `/attribute` stays |
 | `villages` | villager types allowed to take the job, e.g. `["desert"]`. Leave it out for all |
 | `ticket_count` | how many villagers work at one station at the same time, default 1 |
 | `search_distance` | how far a villager looks for the station, default 1 |
@@ -80,6 +80,9 @@ blocks are not available: `smoker`, `barrel`, `blast_furnace`, `brewing_stand`, 
 `stonecutter`. A definition that names only such blocks is rejected, and the message names the
 conflicting job site. If a definition names several blocks, the mod skips the taken ones with a
 warning and uses the rest.
+
+Air, fluids and blocks without collision (flowers, torches, rails) cannot be a workstation. They are
+everywhere in a world, and every one of them would become a point of interest.
 
 ## Textures
 
@@ -255,7 +258,7 @@ own material. `/ddv why <name>` warns about a saved building that goes into all 
 | --- | --- |
 | `structure` | the nbt next to this json, saved in game with a structure block |
 | `workstation` | instead of `structure`: a block id, and the mod builds a stall around it |
-| `weight` | how often it is picked against the rest of the pool, default 1 |
+| `weight` | how often it is picked against the rest of the pool, 1 to 150, default 1 |
 | `villages` | `plains`, `desert`, `savanna`, `snowy`, `taiga`; all of them when left out |
 | `pool` | `houses`, `decor` or `streets`, default `houses` |
 | `pools` | full pool ids, for pools the short form cannot name. Replaces the two fields above |
@@ -291,6 +294,10 @@ Zombie villages are not changed. They use their own pools.
 | `/ddv doctor` | every report at once, into `doctor.txt`, to paste into an issue |
 | `/ddv edit [<name>]` | opens the editor on a profession, or on a new one, and saves it back into the folder |
 | `/ddv help` | this table, in the chat; bare `/ddv` does the same |
+
+`list`, `errors`, `why`, `blocks` and `help` need permission level 2. `reload`, `scaffold`, `export`,
+`doctor` and `edit` write files and need level 3, so command blocks and datapack functions cannot run
+them. In a singleplayer or LAN world, only the host can use them.
 
 `/ddv edit` opens a screen with every field, on five pages. The save button writes the file and runs
 the same reload as `/ddv reload`. The result, including which fields need a restart, appears at the
@@ -357,6 +364,11 @@ claims **after** this mod runs cannot be checked. On Forge, vanilla then rejects
 and the game crashes at startup. On Fabric, the last claim wins without a message. Do not use a block
 that another villager mod makes its own workstation. `/ddv blocks` shows only what is taken at the
 moment you run it.
+
+Some villager mods replace the vanilla code this mod hooks into. With MCA Reborn, `schedule`,
+`health`, `attack`, `attacks`, `work_behaviour`, `villages`, the texture and `hat` have no effect.
+Smarter Farmers replaces the farmer's harvest task, so `"work_behaviour": "farm"` does nothing.
+`/ddv doctor` lists the optional hooks and whether they ran.
 
 ## License
 

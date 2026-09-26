@@ -19,6 +19,7 @@ public final class ProfessionRegistry {
     private static volatile Map<Identifier, ProfessionDefinition> definitions = Collections.emptyMap();
     private static volatile Map<Identifier, RegistryEntry<PointOfInterestType>> poiEntries = Collections.emptyMap();
     private static volatile List<LoadError> errors = Collections.emptyList();
+    private static volatile boolean anyVillageRestrictions = false;
 
     private ProfessionRegistry() {
     }
@@ -36,17 +37,35 @@ public final class ProfessionRegistry {
         if (poi != null && !definition.isOverride()) {
             poiEntries = CopyOnWrite.with(poiEntries, definition.target(), poi);
         }
+        recomputeAnyVillageRestrictions();
     }
 
     /// Swaps the definition, keeps the job site. Lookups follow at once; frozen vanilla records do not.
     public static void replace(ProfessionDefinition definition) {
         definitions = CopyOnWrite.with(definitions, definition.target(), definition);
+        recomputeAnyVillageRestrictions();
     }
 
     /// The profession itself stays registered until a restart.
     public static void remove(Identifier target) {
         definitions = CopyOnWrite.without(definitions, target);
         poiEntries = CopyOnWrite.without(poiEntries, target);
+        recomputeAnyVillageRestrictions();
+    }
+
+    /// Cheap flag for the POI search hook, so it can skip the per-candidate profession scan entirely.
+    public static boolean anyVillageRestrictions() {
+        return anyVillageRestrictions;
+    }
+
+    private static void recomputeAnyVillageRestrictions() {
+        for (ProfessionDefinition definition : definitions.values()) {
+            if (!definition.villages().isEmpty()) {
+                anyVillageRestrictions = true;
+                return;
+            }
+        }
+        anyVillageRestrictions = false;
     }
 
     public static void addError(String file, String reason) {

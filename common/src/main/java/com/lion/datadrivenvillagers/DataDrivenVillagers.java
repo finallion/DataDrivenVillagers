@@ -12,7 +12,7 @@ public class DataDrivenVillagers {
     public static final String MOD_ID = "datadrivenvillagers";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    private static int generation;
+    private static volatile int generation;
 
     /// Registries freeze before any datapack is read, so this must happen during mod init.
     public static void init() {

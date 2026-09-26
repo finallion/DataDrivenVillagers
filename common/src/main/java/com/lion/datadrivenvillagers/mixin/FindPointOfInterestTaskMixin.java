@@ -1,6 +1,7 @@
 package com.lion.datadrivenvillagers.mixin;
 
 import com.lion.datadrivenvillagers.profession.ProfessionBehaviours;
+import com.lion.datadrivenvillagers.profession.ProfessionRegistry;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
@@ -42,7 +43,7 @@ public abstract class FindPointOfInterestTaskMixin {
             ServerWorld world, PathAwareEntity entity, long time) {
         Stream<Pair<RegistryEntry<PointOfInterestType>, BlockPos>> found =
                 original.call(storage, typePredicate, positionPredicate, center, radius, status);
-        if (!(entity instanceof VillagerEntity villager)) {
+        if (!ProfessionRegistry.anyVillageRestrictions() || !(entity instanceof VillagerEntity villager)) {
             return found;
         }
         return found.filter(pair -> ProfessionBehaviours.refusal(villager, pair.getFirst()).isEmpty());
