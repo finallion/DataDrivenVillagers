@@ -123,7 +123,7 @@ public final class DoctorCommand {
         lines.add("Optional hooks: farmer work behaviour "
                 + (OptionalHooks.isFarmerWorkBehaviourConfirmed() ? "confirmed" : "not yet confirmed")
                 + ", gift " + (OptionalHooks.isGiftConfirmed() ? "confirmed" : "not yet confirmed")
-                + ".\"Not yet confirmed\" needs the hook to run once; it is not necessarily broken.");
+                + ". \"Not yet confirmed\" needs the hook to run once; it is not necessarily broken.");
     }
 
     /// The files every client has to bring, named as such.
