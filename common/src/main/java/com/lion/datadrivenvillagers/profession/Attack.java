@@ -15,7 +15,7 @@ import java.util.Optional;
 /// and only a profession with `attacks` gets the piglin's four attack tasks in its core list.
 ///
 /// @param targets  entity types and the distance from which the villager goes for them
-/// @param damage   base value of the attack damage attribute
+/// @param damage   final value of the attack damage attribute
 /// @param cooldown ticks between swings
 public record Attack(List<EntityRange> targets, double damage, int cooldown) {
 

@@ -12,6 +12,7 @@ import com.lion.datadrivenvillagers.platform.RegistryHelper;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.FluidBlock;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.Item;
@@ -23,7 +24,9 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.village.VillagerProfession;
+import net.minecraft.world.EmptyBlockView;
 import net.minecraft.world.poi.PointOfInterestType;
 import net.minecraft.world.poi.PointOfInterestTypes;
 
@@ -55,6 +58,7 @@ public final class ProfessionLoader {
 
     private static final List<ProfessionDefinition> PARSED = new ArrayList<>();
     private static final Map<Identifier, PointOfInterestType> POINTS_OF_INTEREST = new LinkedHashMap<>();
+    private static final Set<Identifier> POI_FAILED = new LinkedHashSet<>();
 
     private ProfessionLoader() {
     }
@@ -65,10 +69,13 @@ public final class ProfessionLoader {
 
     private static boolean prepared;
 
-    /// Fabric registers everything in one init, so the phases run back to back.
+    /// Fabric orders its phases so a rejected point of interest keeps its profession unregistered.
     public static void loadAll() {
+        prepare();
+        registerNewPointsOfInterest();
         registerProfessions();
-        registerPointsOfInterest();
+        applyOverrides();
+        logLoaded();
     }
 
     /// Idempotent: both Forge RegisterEvents call it, professions first, then points of interest.
@@ -81,7 +88,7 @@ public final class ProfessionLoader {
         buildPointsOfInterest();
     }
 
-    // Phase 1: disk to definitions. No registry access, so a reload can run it again into its own list.
+    /// Phase 1: disk to definitions. No registry access, so a reload can run it again into its own list.
     private static void parseInto(List<ProfessionDefinition> target) {
         Path dir = directory();
         try {
@@ -108,8 +115,11 @@ public final class ProfessionLoader {
         }
     }
 
-    // Phase 2: needs a complete block registry; drops definitions with a missing or claimed workstation.
+    /// Phase 2: needs a complete block registry; drops definitions with a missing or claimed workstation.
     private static void buildPointsOfInterest() {
+        // Claims by an earlier file in this same pass; POI_STATES_TO_TYPE has none of them yet.
+        Map<BlockState, Identifier> claimedByEarlierFiles = new LinkedHashMap<>();
+
         Iterator<ProfessionDefinition> iterator = PARSED.iterator();
         while (iterator.hasNext()) {
             ProfessionDefinition definition = iterator.next();
@@ -118,7 +128,11 @@ public final class ProfessionLoader {
                 continue;
             }
             try {
-                POINTS_OF_INTEREST.put(definition.id(), createPointOfInterest(definition));
+                PointOfInterestType poi = createPointOfInterest(definition, claimedByEarlierFiles);
+                POINTS_OF_INTEREST.put(definition.id(), poi);
+                for (BlockState state : poi.blockStates()) {
+                    claimedByEarlierFiles.put(state, definition.id());
+                }
             } catch (Exception e) {
                 reject(definition.name() + EXTENSION, e);
                 iterator.remove();
@@ -126,11 +140,11 @@ public final class ProfessionLoader {
         }
     }
 
-    // Phase 3a. Needs only the instance, not its registration: the predicate compares by identity.
+    /// Needs only the job site instance, not its registration: the predicate compares by identity.
     public static void registerProfessions() {
         prepare();
         for (ProfessionDefinition definition : PARSED) {
-            if (definition.isOverride()) {
+            if (definition.isOverride() || POI_FAILED.contains(definition.id())) {
                 continue;
             }
             PointOfInterestType poi = POINTS_OF_INTEREST.get(definition.id());
@@ -145,9 +159,24 @@ public final class ProfessionLoader {
         }
     }
 
-    // Phase 3b. Registers the point of interest, then fills POI_STATES_TO_TYPE, which needs the registry entry.
+    /// Forge's point of interest event: new job sites first, then overrides.
     public static void registerPointsOfInterest() {
         prepare();
+        registerNewPointsOfInterest();
+        applyOverrides();
+        logLoaded();
+    }
+
+    /// Runs before applyOverrides, so an override cannot take a block of a new profession.
+    private static void registerNewPointsOfInterest() {
+        for (ProfessionDefinition definition : PARSED) {
+            if (!definition.isOverride()) {
+                registerOnePointOfInterest(definition);
+            }
+        }
+    }
+
+    private static void applyOverrides() {
         for (ProfessionDefinition definition : PARSED) {
             if (definition.isOverride()) {
                 try {
@@ -155,30 +184,62 @@ public final class ProfessionLoader {
                 } catch (Exception e) {
                     reject(definition.name() + EXTENSION, e);
                 }
-                continue;
-            }
-
-            PointOfInterestType poi = POINTS_OF_INTEREST.get(definition.id());
-            if (poi == null) {
-                continue;
-            }
-            try {
-                RegistryHelper.registerPointOfInterestType(definition.id(), poi);
-                RegistryEntry<PointOfInterestType> entry = Registries.POINT_OF_INTEREST_TYPE.getEntry(poi);
-
-                // Vanilla fills this map in static init before mod POIs exist; the sensor reads it, not the registry.
-                for (BlockState state : poi.blockStates()) {
-                    JobSiteStates.put(state, entry);
-                }
-                ProfessionRegistry.add(definition, entry);
-                warnIfTextureless(definition);
-            } catch (Exception e) {
-                reject(definition.name() + EXTENSION, e);
             }
         }
+    }
 
+    private static void logLoaded() {
         DataDrivenVillagers.LOGGER.info("Loaded {} villager profession(s) from {}, {} file(s) rejected",
                 ProfessionRegistry.definitions().size(), directory(), ProfessionRegistry.errors().size());
+    }
+
+    /// Registers one point of interest, then fills POI_STATES_TO_TYPE, which needs the registry entry.
+    private static void registerOnePointOfInterest(ProfessionDefinition definition) {
+        PointOfInterestType poi = POINTS_OF_INTEREST.get(definition.id());
+        if (poi == null) {
+            return;
+        }
+
+        // Only a foreign mod can own a state here; buildPointsOfInterest resolves clashes between DDV files.
+        Optional<String> conflict = conflictReason(poi);
+        if (conflict.isPresent()) {
+            POI_FAILED.add(definition.id());
+            reject(definition.name() + EXTENSION, new DefinitionParseException(conflict.get()));
+            return;
+        }
+
+        try {
+            RegistryHelper.registerPointOfInterestType(definition.id(), poi);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Registering the point of interest type for " + definition.name() + EXTENSION + " failed", e);
+        }
+
+        try {
+            RegistryEntry<PointOfInterestType> entry = Registries.POINT_OF_INTEREST_TYPE.getEntry(poi);
+
+            // Vanilla fills this map in static init before mod POIs exist; the sensor reads it, not the registry.
+            for (BlockState state : poi.blockStates()) {
+                JobSiteStates.put(state, entry);
+            }
+            ProfessionRegistry.add(definition, entry);
+            warnIfTextureless(definition);
+        } catch (Exception e) {
+            POI_FAILED.add(definition.id());
+            reject(definition.name() + EXTENSION, e);
+        }
+    }
+
+    /// Names the one workstation block another job site already owns, if any.
+    private static Optional<String> conflictReason(PointOfInterestType poi) {
+        for (BlockState state : poi.blockStates()) {
+            RegistryEntry<PointOfInterestType> existing = JobSiteStates.get(state);
+            if (existing != null) {
+                String owner = existing.getKey().map(key -> key.getValue().toString()).orElse("another job site");
+                return Optional.of(Registries.BLOCK.getId(state.getBlock()) + " is already a job site of " + owner);
+            }
+        }
+        return Optional.empty();
     }
 
     /// Rereads every file; fields baked into vanilla's frozen record need a restart to apply.
@@ -283,7 +344,7 @@ public final class ProfessionLoader {
     /// Startup's block check for a profession the reload sees for the first time; the instance built here is discarded.
     private static boolean workstationsUsable(String file, ProfessionDefinition definition) {
         try {
-            createPointOfInterest(definition);
+            createPointOfInterest(definition, Map.of());
             return true;
         } catch (Exception e) {
             reject(file, e);
@@ -442,7 +503,7 @@ public final class ProfessionLoader {
             said.add(released + " block(s) released");
         }
         if (!refused.isEmpty()) {
-            said.add("refused " + refused + ", unknown or already a job site");
+            said.add("refused " + refused + ", unknown, unsuitable, or already a job site");
         }
         return String.join(", ", said);
     }
@@ -466,7 +527,7 @@ public final class ProfessionLoader {
 
     private static boolean claimBlock(Identifier blockId, RegistryEntry<PointOfInterestType> poi) {
         Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
-        if (block.isEmpty()) {
+        if (block.isEmpty() || unsuitableWorkstation(block.get()).isPresent()) {
             return false;
         }
         Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
@@ -632,12 +693,19 @@ public final class ProfessionLoader {
                                         RegistryEntry<PointOfInterestType> jobSite) {
         List<Identifier> missing = new ArrayList<>();
         List<String> taken = new ArrayList<>();
+        List<String> unsuitable = new ArrayList<>();
         int added = 0;
 
         for (Identifier blockId : definition.addWorkstations()) {
             Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
             if (block.isEmpty()) {
                 missing.add(blockId);
+                continue;
+            }
+
+            Optional<String> reason = unsuitableWorkstation(block.get());
+            if (reason.isPresent()) {
+                unsuitable.add(reason.get());
                 continue;
             }
 
@@ -660,6 +728,10 @@ public final class ProfessionLoader {
         if (!taken.isEmpty()) {
             DataDrivenVillagers.LOGGER.warn("Override {} ignores block(s) that already are a job site: {}",
                     definition.target(), taken);
+        }
+        if (!unsuitable.isEmpty()) {
+            DataDrivenVillagers.LOGGER.warn("Override {} ignores unsuitable block(s): {}",
+                    definition.target(), unsuitable);
         }
         if (added > 0) {
             DataDrivenVillagers.LOGGER.info("Gave {} block(s) to the existing job site of {}",
@@ -701,10 +773,12 @@ public final class ProfessionLoader {
         DataDrivenVillagers.LOGGER.error("Skipping profession file {}: {}", fileName, reason);
     }
 
-    private static PointOfInterestType createPointOfInterest(ProfessionDefinition definition) {
+    private static PointOfInterestType createPointOfInterest(ProfessionDefinition definition,
+                                                               Map<BlockState, Identifier> claimedByEarlierFiles) {
         Set<BlockState> states = new LinkedHashSet<>();
         List<Identifier> missing = new ArrayList<>();
         List<String> taken = new ArrayList<>();
+        List<String> unsuitable = new ArrayList<>();
 
         for (Identifier blockId : definition.workstations()) {
             Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
@@ -713,8 +787,14 @@ public final class ProfessionLoader {
                 continue;
             }
 
+            Optional<String> reason = unsuitableWorkstation(block.get());
+            if (reason.isPresent()) {
+                unsuitable.add(reason.get());
+                continue;
+            }
+
             Set<BlockState> blockStates = PointOfInterestTypes.getStatesOfBlock(block.get());
-            Optional<String> owner = existingOwner(blockStates);
+            Optional<String> owner = ownerOf(blockStates, claimedByEarlierFiles);
             if (owner.isPresent()) {
                 taken.add(blockId + " (already " + owner.get() + ")");
                 continue;
@@ -723,7 +803,7 @@ public final class ProfessionLoader {
         }
 
         if (states.isEmpty()) {
-            throw new DefinitionParseException(reasonForNoStates(definition, missing, taken));
+            throw new DefinitionParseException(reasonForNoStates(definition, missing, taken, unsuitable));
         }
         if (!missing.isEmpty()) {
             // A partially resolvable list is a warning: blocks from an absent mod must not break the file.
@@ -734,8 +814,38 @@ public final class ProfessionLoader {
             DataDrivenVillagers.LOGGER.warn("Profession {} ignores workstation block(s) that already are a job site: {}",
                     definition.id(), taken);
         }
+        if (!unsuitable.isEmpty()) {
+            DataDrivenVillagers.LOGGER.warn("Profession {} ignores unsuitable workstation block(s): {}",
+                    definition.id(), unsuitable);
+        }
 
         return new PointOfInterestType(Set.copyOf(states), definition.ticketCount(), definition.searchDistance());
+    }
+
+    /// Rejects air, fluid blocks and blocks with no collision as a workstation.
+    static Optional<String> unsuitableWorkstation(Block block) {
+        Identifier id = Registries.BLOCK.getId(block);
+        if (block.getDefaultState().isAir()) {
+            return Optional.of(id + " is air and cannot be a workstation");
+        }
+        if (block instanceof FluidBlock) {
+            return Optional.of(id + " is a fluid and cannot be a workstation");
+        }
+        if (block.getDefaultState().getCollisionShape(EmptyBlockView.INSTANCE, BlockPos.ORIGIN).isEmpty()) {
+            return Optional.of(id + " has no collision and cannot be a workstation");
+        }
+        return Optional.empty();
+    }
+
+    /// Checks a same-pass claim first, since POI_STATES_TO_TYPE gets an earlier file's states only once it registers.
+    private static Optional<String> ownerOf(Set<BlockState> states, Map<BlockState, Identifier> claimedByEarlierFiles) {
+        for (BlockState state : states) {
+            Identifier claimed = claimedByEarlierFiles.get(state);
+            if (claimed != null) {
+                return Optional.of(claimed.toString());
+            }
+        }
+        return existingOwner(states);
     }
 
     /// Rejects a state another point of interest type holds; Forge would abort, Fabric would overwrite.
@@ -759,12 +869,18 @@ public final class ProfessionLoader {
         String own = definition.id().toString();
         List<Identifier> missing = new ArrayList<>();
         List<String> taken = new ArrayList<>();
+        List<String> unsuitable = new ArrayList<>();
         int usable = 0;
 
         for (Identifier blockId : definition.workstations()) {
             Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
             if (block.isEmpty()) {
                 missing.add(blockId);
+                continue;
+            }
+            Optional<String> reason = unsuitableWorkstation(block.get());
+            if (reason.isPresent()) {
+                unsuitable.add(reason.get());
                 continue;
             }
             Optional<String> owner = existingOwner(PointOfInterestTypes.getStatesOfBlock(block.get()));
@@ -776,11 +892,17 @@ public final class ProfessionLoader {
         }
 
         return usable == 0
-                ? Optional.of(reasonForNoStates(definition, missing, taken))
+                ? Optional.of(reasonForNoStates(definition, missing, taken, unsuitable))
                 : Optional.empty();
     }
 
-    private static String reasonForNoStates(ProfessionDefinition definition, List<Identifier> missing, List<String> taken) {
+    private static String reasonForNoStates(ProfessionDefinition definition, List<Identifier> missing,
+                                             List<String> taken, List<String> unsuitable) {
+        if (!unsuitable.isEmpty()) {
+            return "no usable workstation block: " + unsuitable
+                    + (missing.isEmpty() ? "" : ", unknown: " + missing)
+                    + (taken.isEmpty() ? "" : ", already taken: " + taken);
+        }
         if (!taken.isEmpty() && missing.isEmpty()) {
             return "workstation block(s) already belong to another job site: " + taken;
         }

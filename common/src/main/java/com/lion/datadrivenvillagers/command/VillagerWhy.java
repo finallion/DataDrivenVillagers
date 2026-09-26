@@ -485,7 +485,7 @@ final class VillagerWhy {
             return;
         }
         double damage = villager.getAttributeValue(EntityAttributes.GENERIC_ATTACK_DAMAGE);
-        boolean asSet = damage == attack.get().damage();
+        boolean asSet = Math.abs(damage - attack.get().damage()) < 1.0E-6;
         String targets = attack.get().targets().stream().map(EntityRange::describe).collect(Collectors.joining(", "));
         report.extra("attack", Text.literal(damage + " damage every " + attack.get().cooldown() + " ticks, goes after "
                 + targets + (asSet ? "" : "  the file says " + attack.get().damage() + ", the brain was not rebuilt since"))
