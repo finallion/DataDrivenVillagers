@@ -10,14 +10,18 @@ import com.lion.datadrivenvillagers.network.EditorTradesPayload;
 import com.lion.datadrivenvillagers.network.LookPayload;
 import com.lion.datadrivenvillagers.network.LookSync;
 import com.lion.datadrivenvillagers.network.LooksBeginPayload;
+import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 import com.lion.datadrivenvillagers.structure.StructureLoader;
+import com.lion.datadrivenvillagers.type.TypeLoader;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.registry.RegistryKeys;
 
 public class DataDrivenVillagersFabric implements ModInitializer {
 
@@ -28,8 +32,13 @@ public class DataDrivenVillagersFabric implements ModInitializer {
         CommandRegistrationCallback.EVENT.register(
                 (dispatcher, access, environment) -> DataDrivenVillagersCommand.register(dispatcher, access));
 
+        CommonLifecycleEvents.TAGS_LOADED.register((registries, client) ->
+                TypeLoader.claimTags(registries.getOrThrow(RegistryKeys.BIOME)));
+
         // Template pools are a datapack registry, built per world: nothing to append to before a server exists.
         ServerLifecycleEvents.SERVER_STARTING.register(StructureLoader::load);
+        // Restores POI claims a registry sync dropped; retries overrides whose target registered late.
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> ProfessionLoader.reapplyAtServerStart());
 
         // Payload types on both sides; client receivers are in the client entrypoint.
         PayloadTypeRegistry.playS2C().register(LooksBeginPayload.ID, LooksBeginPayload.CODEC);

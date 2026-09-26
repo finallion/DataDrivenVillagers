@@ -58,6 +58,11 @@ public final class ProfessionRegistry {
         errors = Collections.emptyList();
     }
 
+    /// Drops the rejection of one file, so `/ddv errors` stops naming it.
+    public static void removeError(String file) {
+        errors = CopyOnWrite.minus(errors, error -> error.file().equals(file));
+    }
+
     public static Optional<ProfessionDefinition> get(Identifier id) {
         return Optional.ofNullable(definitions.get(id));
     }

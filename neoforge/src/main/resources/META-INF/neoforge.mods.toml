@@ -21,6 +21,10 @@ Support: https://www.patreon.com/cw/LithiumPlus
 [[mixins]]
 config = "datadrivenvillagers-common.mixins.json"
 
+# NeoForge-only mixins, such as the data map override on VillagerType.forBiome.
+[[mixins]]
+config = "datadrivenvillagers-neoforge.mixins.json"
+
 [[dependencies.datadrivenvillagers]]
 modId = "neoforge"
 # "mandatory" was replaced by "type" in the 1.20.5 loader generation.

@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /// The three registries are written on one thread (mod init, then the server thread on reload) and
 /// read from others: the render thread asks for textures and hats in single player, world generation
@@ -35,6 +36,12 @@ public final class CopyOnWrite {
     public static <T> List<T> plus(List<T> list, T value) {
         List<T> copy = new ArrayList<>(list);
         copy.add(value);
+        return Collections.unmodifiableList(copy);
+    }
+
+    public static <T> List<T> minus(List<T> list, Predicate<T> remove) {
+        List<T> copy = new ArrayList<>(list);
+        copy.removeIf(remove);
         return Collections.unmodifiableList(copy);
     }
 }

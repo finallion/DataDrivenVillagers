@@ -2,8 +2,6 @@ package com.lion.datadrivenvillagers.mixin;
 
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.profession.ProfessionRegistry;
-import com.lion.datadrivenvillagers.type.TypeLoader;
-import com.lion.datadrivenvillagers.type.TypeRegistry;
 
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
@@ -13,16 +11,13 @@ import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.tag.PointOfInterestTypeTags;
 import net.minecraft.registry.tag.TagGroupLoader;
 import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Identifier;
 import net.minecraft.world.poi.PointOfInterestType;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,21 +63,6 @@ public abstract class SimpleRegistryMixin<T> {
 
         List<RegistryEntry<T>> merged = new ArrayList<>(entries);
         return append(merged) == 0 ? entries : List.copyOf(merged);
-    }
-
-    /// Biomes are a datapack registry, so their tags arrive through `setEntries`, not `startTagReload`.
-    @Inject(method = "setEntries", at = @At("HEAD"))
-    private void datadrivenvillagers$readBiomeTags(TagKey<T> tag, List<RegistryEntry<T>> entries,
-                                                   CallbackInfo ci) {
-        if (!RegistryKeys.BIOME.equals(getKey()) || TypeRegistry.withBiomeTags().isEmpty()) {
-            return;
-        }
-
-        List<Identifier> biomes = new ArrayList<>();
-        for (RegistryEntry<T> entry : entries) {
-            entry.getKey().ifPresent(key -> biomes.add(key.getValue()));
-        }
-        TypeLoader.claimTaggedBiomes(tag.id(), biomes);
     }
 
     @Unique

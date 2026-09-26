@@ -55,6 +55,7 @@ public final class ProfessionLoader {
     private static final String FOLDER = "professions";
     private static final String EXTENSION = ".json";
 
+    /// Refreshed by every reload, so a later server start retries overrides against what is on disk now.
     private static final List<ProfessionDefinition> PARSED = new ArrayList<>();
     private static final Map<Identifier, PointOfInterestType> POINTS_OF_INTEREST = new LinkedHashMap<>();
     private static final Set<Identifier> POI_FAILED = new LinkedHashSet<>();
@@ -301,6 +302,9 @@ public final class ProfessionLoader {
         for (ProfessionRegistry.LoadError error : ProfessionRegistry.errors()) {
             outcomes.add(ReloadOutcome.rejected(error.file(), rejectionDetail(error, kept)));
         }
+
+        PARSED.clear();
+        PARSED.addAll(fresh);
 
         DataDrivenVillagers.newGeneration();
 
@@ -590,8 +594,7 @@ public final class ProfessionLoader {
     private static void applyOverride(ProfessionDefinition definition) {
         Identifier target = definition.target();
         VillagerProfession profession = Registries.VILLAGER_PROFESSION.getOptionalValue(target)
-                .orElseThrow(() -> new DefinitionParseException(
-                        "\"overrides\" names " + target + ", which is not a registered profession"));
+                .orElseThrow(() -> new DefinitionParseException(targetMissingReason(target)));
 
         // One override per target; otherwise the alphabetically later file silently wins.
         Optional<ProfessionDefinition> other = ProfessionRegistry.get(target)
@@ -612,6 +615,96 @@ public final class ProfessionLoader {
 
         ProfessionRegistry.add(definition, jobSite);
         warnIfIgnored(definition);
+    }
+
+    /// Runs at server start. Restores POI states a registry refresh dropped, then retries rejected overrides.
+    public static void reapplyAtServerStart() {
+        for (ProfessionDefinition definition : ProfessionRegistry.ordered()) {
+            RegistryEntry<PointOfInterestType> jobSite = jobSiteFor(definition).orElse(null);
+            if (jobSite == null) {
+                continue;
+            }
+            List<Identifier> blocks = definition.isOverride()
+                    ? definition.addWorkstations()
+                    : definition.workstations();
+            reclaim(definition.target(), blocks, jobSite);
+        }
+        retryRejectedOverrides();
+    }
+
+    /// Fills only the states a registry refresh dropped; a state already ours or someone else's is left alone.
+    private static void reclaim(Identifier owner, List<Identifier> blockIds,
+                                RegistryEntry<PointOfInterestType> jobSite) {
+        int restored = 0;
+        for (Identifier blockId : blockIds) {
+            Optional<Block> block = Registries.BLOCK.getOptionalValue(blockId);
+            if (block.isEmpty() || unsuitableWorkstation(block.get()).isPresent()) {
+                continue;
+            }
+            Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
+            boolean ownedByAnother = false;
+            boolean missing = false;
+            for (BlockState state : states) {
+                RegistryEntry<PointOfInterestType> current = PointOfInterestTypes.POI_STATES_TO_TYPE.get(state);
+                if (current == null) {
+                    missing = true;
+                } else if (current != jobSite) {
+                    ownedByAnother = true;
+                }
+            }
+            if (ownedByAnother || !missing) {
+                continue;
+            }
+            for (BlockState state : states) {
+                PointOfInterestTypes.POI_STATES_TO_TYPE.putIfAbsent(state, jobSite);
+            }
+            restored++;
+        }
+        if (restored > 0) {
+            DataDrivenVillagers.LOGGER.info("Restored {} block(s) for {} that a registry refresh had dropped",
+                    restored, owner);
+        }
+    }
+
+    /// Retries only overrides whose current rejection names a missing target profession.
+    private static void retryRejectedOverrides() {
+        for (ProfessionDefinition definition : PARSED) {
+            if (!definition.isOverride() || ProfessionRegistry.get(definition.target())
+                    .filter(held -> held.name().equals(definition.name())).isPresent()) {
+                continue;
+            }
+            String file = definition.name() + EXTENSION;
+            if (!rejectedForMissingTarget(definition.target(), file)) {
+                continue;
+            }
+            try {
+                applyOverride(definition);
+                ProfessionRegistry.removeError(file);
+                DataDrivenVillagers.LOGGER.info(
+                        "Override {} applied once the server started, its target profession exists now",
+                        definition.target());
+            } catch (Exception e) {
+                ProfessionRegistry.removeError(file);
+                reject(file, e);
+            }
+        }
+    }
+
+    /// True only when the stored error for this file is exactly the "target missing" rejection.
+    private static boolean rejectedForMissingTarget(Identifier target, String file) {
+        String expected = DefinitionParseException.readableReason(
+                new DefinitionParseException(targetMissingReason(target)));
+        for (ProfessionRegistry.LoadError error : ProfessionRegistry.errors()) {
+            if (error.file().equals(file) && error.reason().equals(expected)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// Shared with the throw site in {@link #applyOverride}, so a stored error can be matched back to it.
+    private static String targetMissingReason(Identifier target) {
+        return "\"overrides\" names " + target + ", which is not a registered profession";
     }
 
     /// Fields only read while creating a profession or job site, which an override never does.
