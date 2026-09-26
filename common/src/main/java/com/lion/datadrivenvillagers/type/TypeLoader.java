@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.ReloadOutcome;
+import com.lion.datadrivenvillagers.mixin.VillagerTypeAccessor;
 import com.lion.datadrivenvillagers.platform.ConfigDirectory;
 import com.lion.datadrivenvillagers.platform.RegistryHelper;
 
@@ -36,7 +37,7 @@ import java.util.stream.Stream;
 
 /// Reads every villager type file during startup, registers the type and claims its biomes in
 /// `VillagerType.BIOME_TO_TYPE`. Named biomes are claimed at registration; tag members only exist once
-/// a world loads, so those are claimed from the tag hook ({@link #claimTaggedBiomes}).
+/// a world loads, so those are claimed from the tag hook ({@link #claimTags(Registry)}).
 public final class TypeLoader {
 
     private static final String FOLDER = "types";
@@ -47,6 +48,12 @@ public final class TypeLoader {
     /// Who held a biome before we took it, recorded once on first claim, never overwritten by a later one.
     private static final Map<RegistryKey<Biome>, Optional<VillagerType>> DISPLACED =
             new HashMap<>();
+
+    /// Every biome DDV currently claims, kept apart from `BIOME_TO_TYPE` so a release knows what to give back.
+    private static volatile Map<RegistryKey<Biome>, VillagerType> ownClaims = Map.of();
+
+    /// The subset of `ownClaims` claimed through `biomes`, not through a tag; read by worldgen threads.
+    private static volatile Map<RegistryKey<Biome>, VillagerType> namedClaims = Map.of();
 
     private static boolean prepared;
 
@@ -91,19 +98,21 @@ public final class TypeLoader {
         }
     }
 
-    /// Registers the types and claims the biomes named outright; tags come later through `claimTaggedBiomes`.
+    /// Registers the types and claims the biomes named outright; tags come later through `claimTags`.
     public static void registerTypes() {
         prepare();
+        Claims claims = Claims.ofCurrent();
         for (TypeDefinition definition : PARSED) {
             try {
                 VillagerType type = RegistryHelper.registerVillagerType(definition.id(),
                         new VillagerType(definition.name()));
                 TypeRegistry.add(definition);
-                claimNamedBiomes(definition, type);
+                claimNamedBiomes(claims, definition, type);
             } catch (Exception e) {
                 reject(definition.name() + EXTENSION, e);
             }
         }
+        claims.publish();
 
         if (!TypeRegistry.isEmpty() || !TypeRegistry.errors().isEmpty()) {
             DataDrivenVillagers.LOGGER.info("Loaded {} villager type(s) from {}, {} file(s) rejected",
@@ -112,11 +121,14 @@ public final class TypeLoader {
     }
 
     /// A biome named outright wins over whatever held it, vanilla included.
-    private static void claimNamedBiomes(TypeDefinition definition, VillagerType type) {
+    private static void claimNamedBiomes(Claims claims, TypeDefinition definition, VillagerType type) {
         for (Identifier biome : definition.biomes()) {
             RegistryKey<Biome> key = RegistryKey.of(RegistryKeys.BIOME, biome);
-            VillagerType previous = VillagerType.BIOME_TO_TYPE.put(key, type);
+            VillagerType previous = claims.biomeToType.put(key, type);
             remember(key, previous);
+            claims.own.put(key, type);
+            claims.named.put(key, type);
+            claims.changed = true;
             if (previous != null && previous != type) {
                 DataDrivenVillagers.LOGGER.info("Villager type {} takes biome {} from {}",
                         definition.id(), biome, idOf(previous));
@@ -142,8 +154,8 @@ public final class TypeLoader {
         return id != null && TypeRegistry.get(id).isPresent();
     }
 
-    /// Called again after every datapack load, so it must stay idempotent: fills only biomes nothing holds yet.
-    public static void claimTaggedBiomes(Identifier tagId, List<Identifier> biomes) {
+    /// Runs again after every datapack load, so it must stay idempotent: fills only biomes nothing holds yet.
+    private static void claimTaggedBiomes(Claims claims, Identifier tagId, List<Identifier> biomes) {
         for (TypeDefinition definition : TypeRegistry.withBiomeTags()) {
             if (!definition.biomeTags().contains(tagId)) {
                 continue;
@@ -157,9 +169,11 @@ public final class TypeLoader {
             int claimed = 0;
             for (Identifier biome : biomes) {
                 RegistryKey<Biome> key = RegistryKey.of(RegistryKeys.BIOME, biome);
-                if (VillagerType.BIOME_TO_TYPE.putIfAbsent(key, type) == null) {
+                if (claims.biomeToType.putIfAbsent(key, type) == null) {
                     claimed++;
                     remember(key, null);
+                    claims.own.put(key, type);
+                    claims.changed = true;
                 }
             }
 
@@ -170,14 +184,20 @@ public final class TypeLoader {
         }
     }
 
+    /// Read by the NeoForge mixin. Empty for a biome DDV claims only through a tag; the data map answers there.
+    public static Optional<VillagerType> ownClaim(RegistryKey<Biome> biome) {
+        return Optional.ofNullable(namedClaims.get(biome));
+    }
+
     /// `VillagerType` itself carries no data, so unlike other registry entries, texture and biomes update live.
     public static List<ReloadOutcome> reload(Registry<Biome> biomes) {
         TypeRegistry.clearErrors();
         List<TypeDefinition> fresh = new ArrayList<>();
         parseInto(directory(), fresh);
 
-        // Before the swap: needs the old definitions to know which biomes are ours.
-        releaseBiomes();
+        // Must run before this generation claims anything: releaseBiomes reads the claims of the last one.
+        Claims claims = Claims.ofCurrent();
+        releaseBiomes(claims);
 
         List<ReloadOutcome> outcomes = new ArrayList<>();
         Map<Identifier, TypeDefinition> previous = new LinkedHashMap<>();
@@ -206,10 +226,11 @@ public final class TypeLoader {
         for (TypeDefinition definition : TypeRegistry.ordered()) {
             VillagerType type = Registries.VILLAGER_TYPE.get(definition.id());
             if (type != null) {
-                claimNamedBiomes(definition, type);
+                claimNamedBiomes(claims, definition, type);
             }
         }
-        claimTags(biomes);
+        claimTags(claims, biomes);
+        claims.publish();
 
         for (TypeRegistry.LoadError error : TypeRegistry.errors()) {
             outcomes.add(ReloadOutcome.rejected(error.file(), error.reason()));
@@ -233,24 +254,30 @@ public final class TypeLoader {
         return String.join(", ", changed);
     }
 
-    /// Collected first, then changed, because this walks the very map it is about to edit.
-    private static void releaseBiomes() {
-        List<RegistryKey<Biome>> ours = new ArrayList<>();
-        for (Map.Entry<RegistryKey<Biome>, VillagerType> entry : VillagerType.BIOME_TO_TYPE.entrySet()) {
-            if (ours(entry.getValue())) {
-                ours.add(entry.getKey());
+    /// Gives back each biome DDV still holds; a biome another mod took since then stays with that mod.
+    private static void releaseBiomes(Claims claims) {
+        for (Map.Entry<RegistryKey<Biome>, VillagerType> claim : claims.own.entrySet()) {
+            RegistryKey<Biome> biome = claim.getKey();
+            if (claims.biomeToType.get(biome) != claim.getValue()) {
+                continue;
             }
+            DISPLACED.getOrDefault(biome, Optional.empty()).ifPresentOrElse(
+                    before -> claims.biomeToType.put(biome, before), () -> claims.biomeToType.remove(biome));
+            claims.changed = true;
         }
+        claims.own.clear();
+        claims.named.clear();
+    }
 
-        for (RegistryKey<Biome> biome : ours) {
-            DISPLACED.getOrDefault(biome, Optional.empty())
-                    .ifPresentOrElse(before -> VillagerType.BIOME_TO_TYPE.put(biome, before),
-                            () -> VillagerType.BIOME_TO_TYPE.remove(biome));
-        }
+    /// Tag hook of both loaders; publishes only when a tag filled a free biome.
+    public static void claimTags(Registry<Biome> biomes) {
+        Claims claims = Claims.ofCurrent();
+        claimTags(claims, biomes);
+        claims.publish();
     }
 
     /// Resolved once per tag; {@link #claimTaggedBiomes} hands the members to every type naming it.
-    private static void claimTags(Registry<Biome> biomes) {
+    private static void claimTags(Claims claims, Registry<Biome> biomes) {
         Set<Identifier> tags = new LinkedHashSet<>();
         TypeRegistry.withBiomeTags().forEach(definition -> tags.addAll(definition.biomeTags()));
 
@@ -260,8 +287,37 @@ public final class TypeLoader {
                 for (RegistryEntry<Biome> entry : tag) {
                     entry.getKey().ifPresent(key -> members.add(key.getValue()));
                 }
-                claimTaggedBiomes(tagId, members);
+                claimTaggedBiomes(claims, tagId, members);
             });
+        }
+    }
+
+    /// Copies of the biome map and both claim maps; worldgen threads see the result in one swap each.
+    private static final class Claims {
+        private final Map<RegistryKey<Biome>, VillagerType> biomeToType;
+        private final Map<RegistryKey<Biome>, VillagerType> own;
+        private final Map<RegistryKey<Biome>, VillagerType> named;
+        private boolean changed;
+
+        private Claims(Map<RegistryKey<Biome>, VillagerType> biomeToType,
+                       Map<RegistryKey<Biome>, VillagerType> own, Map<RegistryKey<Biome>, VillagerType> named) {
+            this.biomeToType = biomeToType;
+            this.own = own;
+            this.named = named;
+        }
+
+        static Claims ofCurrent() {
+            return new Claims(new HashMap<>(VillagerType.BIOME_TO_TYPE), new HashMap<>(ownClaims),
+                    new HashMap<>(namedClaims));
+        }
+
+        void publish() {
+            if (!changed) {
+                return;
+            }
+            VillagerTypeAccessor.ddv$setBiomeToType(biomeToType);
+            ownClaims = Map.copyOf(own);
+            namedClaims = Map.copyOf(named);
         }
     }
 

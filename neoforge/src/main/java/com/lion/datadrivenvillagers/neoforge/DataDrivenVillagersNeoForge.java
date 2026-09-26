@@ -23,6 +23,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -39,6 +40,8 @@ public class DataDrivenVillagersNeoForge {
         NeoForge.EVENT_BUS.addListener(DataDrivenVillagersNeoForge::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(DataDrivenVillagersNeoForge::onPlayerLoggedIn);
 
+        NeoForge.EVENT_BUS.addListener(DataDrivenVillagersNeoForge::onTagsUpdated);
+
         // Template pools are a datapack registry, built per world: nothing to append to before a server exists.
         NeoForge.EVENT_BUS.addListener(DataDrivenVillagersNeoForge::onServerAboutToStart);
 
@@ -49,6 +52,11 @@ public class DataDrivenVillagersNeoForge {
 
     private static void onServerAboutToStart(ServerAboutToStartEvent event) {
         StructureLoader.load(event.getServer());
+        ProfessionLoader.reapplyAtServerStart();
+    }
+
+    private static void onTagsUpdated(TagsUpdatedEvent event) {
+        TypeLoader.claimTags(event.getRegistryAccess().get(RegistryKeys.BIOME));
     }
 
     private static void onRegister(RegisterEvent event) {
