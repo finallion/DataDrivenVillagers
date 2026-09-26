@@ -2,6 +2,7 @@ package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
+import com.lion.datadrivenvillagers.hook.OptionalHooks;
 import com.lion.datadrivenvillagers.platform.PlatformInfo;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
@@ -64,6 +65,7 @@ public final class DoctorCommand {
         lines.add("Rejected: " + ProfessionRegistry.errors().size() + " profession file(s), "
                 + TypeRegistry.errors().size() + " type file(s), " + StructureRegistry.errors().size() + " structure file(s)");
         clientsNeed(lines);
+        optionalHooks(lines);
         lines.add("");
 
         lines.add("== Rejected files ==");
@@ -114,6 +116,14 @@ public final class DoctorCommand {
                 .append(Text.literal(ConfigFiles.relative(file)).formatted(Formatting.YELLOW))
                 .append(Text.literal("  paste it into an issue as it is.").formatted(Formatting.GRAY)), false);
         return reports;
+    }
+
+    /// Optional hooks run with `require = 0`, so a lost injection target stays silent otherwise.
+    private static void optionalHooks(List<String> lines) {
+        lines.add("Optional hooks: farmer work behaviour "
+                + (OptionalHooks.isFarmerWorkBehaviourConfirmed() ? "confirmed" : "not yet confirmed")
+                + ", gift " + (OptionalHooks.isGiftConfirmed() ? "confirmed" : "not yet confirmed")
+                + ".\"Not yet confirmed\" needs the hook to run once; it is not necessarily broken.");
     }
 
     /// The files every client has to bring, named as such.

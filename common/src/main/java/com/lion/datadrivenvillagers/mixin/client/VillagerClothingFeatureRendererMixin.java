@@ -33,7 +33,9 @@ import java.util.Optional;
 @Mixin(VillagerClothingFeatureRenderer.class)
 public abstract class VillagerClothingFeatureRendererMixin {
 
+    @Unique
     private static final String PROFESSION = "profession";
+    @Unique
     private static final String TYPE = "type";
 
     /// "villager" or "zombie_villager", set at construction.
@@ -115,6 +117,7 @@ public abstract class VillagerClothingFeatureRendererMixin {
     }
 
     /// No switch here: a switch on an enum compiles to a synthetic class that Mixin cannot load in production.
+    @Unique
     private static VillagerResourceMetadata.HatType toHatType(HatKind kind) {
         return VillagerResourceMetadata.HatType.valueOf(kind.name());
     }

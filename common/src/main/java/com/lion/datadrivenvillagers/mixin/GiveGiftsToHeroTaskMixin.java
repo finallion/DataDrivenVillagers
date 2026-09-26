@@ -1,5 +1,6 @@
 package com.lion.datadrivenvillagers.mixin;
 
+import com.lion.datadrivenvillagers.hook.OptionalHooks;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionRegistry;
 
@@ -23,9 +24,10 @@ import java.util.Optional;
 public abstract class GiveGiftsToHeroTaskMixin {
 
     @Inject(method = "getGiftLootTable(Lnet/minecraft/entity/passive/VillagerEntity;)Lnet/minecraft/registry/RegistryKey;",
-            at = @At("HEAD"), cancellable = true)
+            require = 0, at = @At("HEAD"), cancellable = true)
     private static void datadrivenvillagers$overrideGift(VillagerEntity villager,
                                                          CallbackInfoReturnable<RegistryKey<LootTable>> cir) {
+        OptionalHooks.confirmGift();
         // Vanilla answers babies before looking at the profession.
         if (villager.isBaby()) {
             return;
