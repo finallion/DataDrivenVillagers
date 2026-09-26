@@ -11,11 +11,13 @@
     "StructureTemplateManagerMixin",
     "FindPointOfInterestTaskMixin",
     "MerchantEntityAccessor",
+    "StructurePoolAccessor",
     "VillagerAttackMixin",
     "VillagerEntityMixin",
     "VillagerNameMixin",
     "VillagerHostilesSensorMixin",
     "VillagerTaskListProviderMixin",
+    "VillagerTypeAccessor",
     "WorkStationCompetitionTaskMixin",
     "TakeJobSiteTaskMixin"
   ],

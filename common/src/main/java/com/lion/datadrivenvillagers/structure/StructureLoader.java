@@ -6,7 +6,10 @@ import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.ReloadOutcome;
+import com.lion.datadrivenvillagers.mixin.StructurePoolAccessor;
 import com.lion.datadrivenvillagers.platform.ConfigDirectory;
+
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -73,7 +76,8 @@ public final class StructureLoader {
         parseInto(fresh);
 
         Registry<StructurePool> pools = server.getRegistryManager().get(RegistryKeys.TEMPLATE_POOL);
-        takeBack(pools);
+        Registry<StructureProcessorList> processors =
+                server.getRegistryManager().get(RegistryKeys.PROCESSOR_LIST);
 
         Set<Identifier> present = new LinkedHashSet<>();
         for (StructureDefinition definition : fresh) {
@@ -86,12 +90,13 @@ public final class StructureLoader {
             }
         }
 
-        Registry<StructureProcessorList> processors =
-                server.getRegistryManager().get(RegistryKeys.PROCESSOR_LIST);
+        Map<Identifier, List<StructurePoolElement>> additions = new LinkedHashMap<>();
+        Map<Identifier, List<StructurePoolElement>> nextInjected = new LinkedHashMap<>();
         int wired = 0;
         for (StructureDefinition definition : StructureRegistry.ordered()) {
-            wired += inject(definition, pools, processors);
+            wired += inject(definition, pools, processors, additions, nextInjected);
         }
+        swapPools(pools, additions, nextInjected);
 
         if (!StructureRegistry.isEmpty() || !StructureRegistry.errors().isEmpty()) {
             DataDrivenVillagers.LOGGER.info("Added {} structure(s) from {} to {} pool(s), {} file(s) rejected",
@@ -126,14 +131,15 @@ public final class StructureLoader {
         return outcomes;
     }
 
-    /// Appends to `StructurePool.elements` only; the immutable `elementCounts` is used just by the codec.
+    /// Collects this file's elements per pool; the take-back and the add happen together in swapPools.
     private static int inject(StructureDefinition definition, Registry<StructurePool> pools,
-                              Registry<StructureProcessorList> processors) {
+                              Registry<StructureProcessorList> processors,
+                              Map<Identifier, List<StructurePoolElement>> additions,
+                              Map<Identifier, List<StructurePoolElement>> nextInjected) {
         List<Identifier> missing = new ArrayList<>();
         int wired = 0;
         for (Identifier poolId : definition.targetPools()) {
-            StructurePool pool = pools.getOrEmpty(poolId).orElse(null);
-            if (pool == null) {
+            if (pools.getOrEmpty(poolId).isEmpty()) {
                 missing.add(poolId);
                 continue;
             }
@@ -142,10 +148,11 @@ public final class StructureLoader {
             if (element == null) {
                 return 0;
             }
+            List<StructurePoolElement> toAdd = additions.computeIfAbsent(poolId, key -> new ArrayList<>());
             for (int i = 0; i < definition.weight(); i++) {
-                pool.elements.add(element);
+                toAdd.add(element);
             }
-            INJECTED.computeIfAbsent(poolId, key -> new ArrayList<>()).add(element);
+            nextInjected.computeIfAbsent(poolId, key -> new ArrayList<>()).add(element);
             wired++;
         }
 
@@ -185,12 +192,28 @@ public final class StructureLoader {
         return StructurePoolElement.ofProcessedLegacySingle(location, entry.get()).apply(projection);
     }
 
-    private static void takeBack(Registry<StructurePool> pools) {
-        for (Map.Entry<Identifier, List<StructurePoolElement>> entry : INJECTED.entrySet()) {
-            pools.getOrEmpty(entry.getKey()).ifPresent(pool ->
-                    pool.elements.removeIf(element -> entry.getValue().contains(element)));
+    /// One swap per pool: the last generation's pieces come out and this one's go in, in the same copy.
+    private static void swapPools(Registry<StructurePool> pools, Map<Identifier, List<StructurePoolElement>> additions,
+                                  Map<Identifier, List<StructurePoolElement>> nextInjected) {
+        Set<Identifier> poolIds = new LinkedHashSet<>(INJECTED.keySet());
+        poolIds.addAll(additions.keySet());
+        for (Identifier poolId : poolIds) {
+            pools.getOrEmpty(poolId).ifPresent(pool -> {
+                StructurePoolAccessor accessor = (StructurePoolAccessor) pool;
+                ObjectArrayList<StructurePoolElement> copy = new ObjectArrayList<>(accessor.ddv$elements());
+                List<StructurePoolElement> old = INJECTED.get(poolId);
+                if (old != null) {
+                    copy.removeIf(old::contains);
+                }
+                List<StructurePoolElement> toAdd = additions.get(poolId);
+                if (toAdd != null) {
+                    copy.addAll(toAdd);
+                }
+                accessor.ddv$setElements(copy);
+            });
         }
         INJECTED.clear();
+        INJECTED.putAll(nextInjected);
     }
 
     private static void parseInto(List<StructureDefinition> target) {

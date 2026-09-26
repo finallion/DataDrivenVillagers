@@ -12,6 +12,7 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.TagsUpdatedEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -30,6 +31,8 @@ public class DataDrivenVillagersForge {
         MinecraftForge.EVENT_BUS.addListener(DataDrivenVillagersForge::onRegisterCommands);
         MinecraftForge.EVENT_BUS.addListener(DataDrivenVillagersForge::onPlayerLoggedIn);
 
+        MinecraftForge.EVENT_BUS.addListener(DataDrivenVillagersForge::onTagsUpdated);
+
         // Template pools are a datapack registry, built per world: nothing to append to before a server exists.
         MinecraftForge.EVENT_BUS.addListener(DataDrivenVillagersForge::onServerAboutToStart);
 
@@ -42,6 +45,11 @@ public class DataDrivenVillagersForge {
 
     private static void onServerAboutToStart(ServerAboutToStartEvent event) {
         StructureLoader.load(event.getServer());
+        ProfessionLoader.reapplyAtServerStart();
+    }
+
+    private static void onTagsUpdated(TagsUpdatedEvent event) {
+        TypeLoader.claimTags(event.getRegistryAccess().get(RegistryKeys.BIOME));
     }
 
     private static void onRegister(RegisterEvent event) {
