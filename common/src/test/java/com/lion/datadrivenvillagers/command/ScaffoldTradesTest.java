@@ -1,5 +1,6 @@
 package com.lion.datadrivenvillagers.command;
 
+import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionParser;
 
@@ -9,6 +10,7 @@ import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ScaffoldTradesTest {
@@ -47,5 +49,14 @@ class ScaffoldTradesTest {
                 { "workstation": "minecraft:smoker" }
                 """);
         assertEquals(Scaffold.tradesPiece(definition), Scaffold.pieces(definition).get(0));
+    }
+
+    /// A valid identifier can still hold ".." path segments; those must not reach a zip entry.
+    @Test
+    void aGiftPathThatWouldEscapeTheDatapackIsRejected() {
+        ProfessionDefinition definition = parse("baker", """
+                { "workstation": "minecraft:smoker", "gift": "datadrivenvillagers:../../../../evil" }
+                """);
+        assertThrows(DefinitionParseException.class, () -> Scaffold.pieces(definition));
     }
 }

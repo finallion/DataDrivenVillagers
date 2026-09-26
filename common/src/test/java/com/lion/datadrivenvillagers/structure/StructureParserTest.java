@@ -135,6 +135,18 @@ class StructureParserTest {
                 """));
     }
 
+    /// A village pool weighted this high would crowd out every other building it shares a pool with.
+    @Test
+    void rejectsAWeightAboveTheLimit() {
+        DefinitionParseException e = assertThrows(DefinitionParseException.class, () -> parse("x", """
+                { "structure": "a.nbt", "weight": 151 }
+                """));
+        assertTrue(e.getMessage().contains("150"));
+        assertEquals(150, parse("y", """
+                { "structure": "a.nbt", "weight": 150 }
+                """).weight());
+    }
+
     @Test
     void readsGroundAndProcessors() {
         StructureDefinition definition = parse("path", """

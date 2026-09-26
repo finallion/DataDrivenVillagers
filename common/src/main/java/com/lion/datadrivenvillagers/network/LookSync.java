@@ -19,14 +19,22 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
-/// Server side of look sync: builds the packets from the registries and the pngs on disk, fresh on
-/// every join and reload, no cache.
+/// Server side of look sync: builds the packets from the registries and the pngs on disk. Between
+/// reloads a png is only re-read when its definition or its own file's timestamp changed; a reload
+/// itself bumps the mod's generation counter and empties the whole cache.
 public final class LookSync {
 
     /// 3-byte VarInt frame limit; vanilla's 1 MB cap covers only payloads the receiver does not know.
@@ -38,24 +46,73 @@ public final class LookSync {
     /// Ids, hat, the optionals and the frame, generously.
     static final int PACKET_HEADROOM = 16_384;
 
+    /// One cached look plus what it was built from, so a later call can tell whether it is still fresh.
+    private record Cached(TexturedDefinition definition, HatKind hat, Optional<FileTime> villagerTime,
+                          Optional<FileTime> zombieTime, LookPayload payload) {
+    }
+
+    private static final Map<Identifier, Cached> CACHE = new HashMap<>();
+
+    /// The generation this cache was built under; a reload bumps the mod's counter and empties it.
+    private static int cachedGeneration = -1;
+
     private LookSync() {
     }
 
     public static List<CustomPayload> payloads() {
+        int generation = DataDrivenVillagers.generation();
+        if (generation != cachedGeneration) {
+            CACHE.clear();
+            cachedGeneration = generation;
+        }
+
         List<LookPayload> looks = new ArrayList<>();
+        Set<Identifier> present = new HashSet<>();
         Path professions = ProfessionLoader.directory();
         for (ProfessionDefinition definition : ProfessionRegistry.ordered()) {
-            looks.add(look(LookPayload.Kind.PROFESSION, definition.target(), definition, definition.hat(), professions));
+            present.add(definition.target());
+            looks.add(cached(LookPayload.Kind.PROFESSION, definition.target(), definition, definition.hat(), professions));
         }
         Path types = TypeLoader.directory();
         for (TypeDefinition definition : TypeRegistry.ordered()) {
-            looks.add(look(LookPayload.Kind.TYPE, definition.id(), definition, HatKind.NONE, types));
+            present.add(definition.id());
+            looks.add(cached(LookPayload.Kind.TYPE, definition.id(), definition, HatKind.NONE, types));
         }
+        // A profession or type that is gone should not keep its stale look alive forever.
+        CACHE.keySet().retainAll(present);
 
         List<CustomPayload> payloads = new ArrayList<>();
         payloads.add(new LooksBeginPayload(looks.size()));
         payloads.addAll(looks);
         return payloads;
+    }
+
+    /// Reused as long as neither the definition nor the modification time of its own image files changed.
+    private static LookPayload cached(LookPayload.Kind kind, Identifier target, TexturedDefinition definition,
+                                      HatKind hat, Path folder) {
+        Optional<FileTime> villagerTime = modified(folder, definition.textureFile());
+        Optional<FileTime> zombieTime = modified(folder, definition.zombieTextureFile());
+        Cached previous = CACHE.get(target);
+        if (previous != null && previous.definition().equals(definition) && previous.hat() == hat
+                && previous.villagerTime().equals(villagerTime) && previous.zombieTime().equals(zombieTime)) {
+            return previous.payload();
+        }
+
+        LookPayload built = look(kind, target, definition, hat, folder);
+        CACHE.put(target, new Cached(definition, hat, villagerTime, zombieTime, built));
+        return built;
+    }
+
+    private static Optional<FileTime> modified(Path folder, Optional<String> file) {
+        return file.flatMap(name -> ConfigFiles.resolveInside(folder, name))
+                .filter(Files::isRegularFile)
+                .flatMap(path -> {
+                    try {
+                        return Optional.of(Files.getLastModifiedTime(path));
+                    } catch (IOException e) {
+                        return Optional.empty();
+                    }
+                });
     }
 
     private static LookPayload look(LookPayload.Kind kind, Identifier target, TexturedDefinition definition,
@@ -100,17 +157,29 @@ public final class LookSync {
                         + "own copy of {} for the same reason", png, rejected.get(), id);
                 return Optional.empty();
             }
-            long size = Files.size(png);
-            if (size > MAX_PNG_BYTES) {
-                DataDrivenVillagers.LOGGER.warn("{} is {} bytes, too large to send to players; they will "
-                        + "use their own copy of {} if they have one", png, size, id);
-                return Optional.empty();
+            Optional<byte[]> read = readUpTo(png, MAX_PNG_BYTES);
+            if (read.isEmpty()) {
+                DataDrivenVillagers.LOGGER.warn("{} is over {} bytes, too large to send to players; they "
+                        + "will use their own copy of {} if they have one", png, MAX_PNG_BYTES, id);
             }
-            return Optional.of(Files.readAllBytes(png));
+            return read;
         } catch (IOException e) {
             DataDrivenVillagers.LOGGER.error("Could not read {} to send it to players", png, e);
             return Optional.empty();
         }
+    }
+
+    /// Empty once the file holds more than `limit` bytes.
+    private static Optional<byte[]> readUpTo(Path file, int limit) throws IOException {
+        byte[] buffer = new byte[limit + 1];
+        int total = 0;
+        try (InputStream in = Files.newInputStream(file)) {
+            int read;
+            while (total < buffer.length && (read = in.read(buffer, total, buffer.length - total)) != -1) {
+                total += read;
+            }
+        }
+        return total > limit ? Optional.empty() : Optional.of(Arrays.copyOf(buffer, total));
     }
 
     /// @return how many looks were sent, the begin packet not counted

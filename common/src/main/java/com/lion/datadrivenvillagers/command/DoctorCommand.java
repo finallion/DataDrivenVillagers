@@ -1,5 +1,7 @@
 package com.lion.datadrivenvillagers.command;
 
+import com.lion.datadrivenvillagers.ConfigFiles;
+import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.platform.PlatformInfo;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
@@ -42,7 +44,9 @@ public final class DoctorCommand {
     }
 
     public static LiteralArgumentBuilder<ServerCommandSource> node() {
-        return CommandManager.literal("doctor").executes(Framed.framed(DoctorCommand::doctor));
+        return CommandManager.literal("doctor")
+                .requires(WriteAccess::allowed)
+                .executes(Framed.framed(DoctorCommand::doctor));
     }
 
     private static int doctor(CommandContext<ServerCommandSource> context) {
@@ -54,7 +58,7 @@ public final class DoctorCommand {
         lines.add("DataDrivenVillagers doctor, " + ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         lines.add("Minecraft " + SharedConstants.getGameVersion().getName() + ", " + PlatformInfo.loader()
                 + ", DataDrivenVillagers " + PlatformInfo.modVersion());
-        lines.add("Config folder: " + ProfessionLoader.directory().getParent());
+        lines.add("Config folder: " + ConfigFiles.relative(ProfessionLoader.directory().getParent()));
         lines.add("Loaded: " + ProfessionRegistry.ordered().size() + " profession(s), "
                 + TypeRegistry.ordered().size() + " type(s), " + StructureRegistry.ordered().size() + " structure(s)");
         lines.add("Rejected: " + ProfessionRegistry.errors().size() + " profession file(s), "
@@ -93,7 +97,9 @@ public final class DoctorCommand {
             Files.createDirectories(file.getParent());
             Files.write(file, lines, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            source.sendError(Text.literal("Could not write " + file + ": " + e.getMessage()));
+            DataDrivenVillagers.LOGGER.error("Could not write {}", file, e);
+            source.sendError(Text.literal("Could not write " + ConfigFiles.relative(file)
+                    + " - see the server log."));
             return 0;
         }
 
@@ -105,7 +111,7 @@ public final class DoctorCommand {
                         + rejected + " file(s) rejected")
                 .formatted(finalBroken + rejected == 0 ? Formatting.GREEN : Formatting.YELLOW), false);
         source.sendFeedback(() -> Text.literal("Wrote ").formatted(Formatting.GREEN)
-                .append(Text.literal(file.toString()).formatted(Formatting.YELLOW))
+                .append(Text.literal(ConfigFiles.relative(file)).formatted(Formatting.YELLOW))
                 .append(Text.literal("  paste it into an issue as it is.").formatted(Formatting.GRAY)), false);
         return reports;
     }

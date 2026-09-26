@@ -4,6 +4,7 @@ import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.TexturedDefinition;
 import com.lion.datadrivenvillagers.profession.HatKind;
 
+import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 
 import java.util.HashMap;
@@ -43,10 +44,14 @@ public final class SyncedLooks {
         }
     }
 
+    /// Fallback ceiling for a sync that skipped {@link #begin}; no installed pack has anywhere near this many.
+    private static final int SANE_CAP = 4096;
+
     private static final Map<Identifier, Look> PROFESSIONS = new HashMap<>();
     private static final Map<Identifier, Look> TYPES = new HashMap<>();
 
     private static boolean active;
+    private static boolean beginSeen;
     private static int generation;
     private static int expected;
 
@@ -57,6 +62,7 @@ public final class SyncedLooks {
         PROFESSIONS.clear();
         TYPES.clear();
         active = true;
+        beginSeen = true;
         expected = payload.count();
         // Bumped once per sync, not per look: the renderer's texture cache drops everything when it moves.
         generation++;
@@ -64,15 +70,29 @@ public final class SyncedLooks {
                 payload.count());
     }
 
+    /// Ignores a target this client has no such profession or type for, and stops past the announced count.
     public static void accept(LookPayload payload) {
         if (!active) {
             // A look without a begin packet is taken anyway.
             active = true;
             generation++;
         }
+        if (!registered(payload.kind(), payload.target())) {
+            return;
+        }
+        int cap = beginSeen ? Math.min(expected, SANE_CAP) : SANE_CAP;
+        if (received() >= cap) {
+            return;
+        }
         Look look = new Look(payload.kind(), payload.definition(), payload.hat(), payload.texture(),
                 payload.png(), payload.zombieTexture(), payload.zombiePng());
         (payload.kind() == LookPayload.Kind.PROFESSION ? PROFESSIONS : TYPES).put(payload.target(), look);
+    }
+
+    private static boolean registered(LookPayload.Kind kind, Identifier target) {
+        return kind == LookPayload.Kind.PROFESSION
+                ? Registries.VILLAGER_PROFESSION.containsId(target)
+                : Registries.VILLAGER_TYPE.containsId(target);
     }
 
     /// Back to the client's own folder. Called when the client leaves a world.
@@ -83,6 +103,7 @@ public final class SyncedLooks {
         PROFESSIONS.clear();
         TYPES.clear();
         active = false;
+        beginSeen = false;
         expected = 0;
         generation++;
     }
