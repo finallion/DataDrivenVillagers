@@ -12,10 +12,12 @@ import com.lion.datadrivenvillagers.network.LooksBeginPayload;
 import com.lion.datadrivenvillagers.network.SyncedLooks;
 
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -43,29 +45,37 @@ final class Channel {
     static void register() {
         INSTANCE.registerMessage(0, LooksBeginPayload.class,
                 (payload, buf) -> payload.write(buf), LooksBeginPayload::read,
-                (payload, context) -> onClient(context, () -> SyncedLooks.begin(payload)));
+                (payload, context) -> onClient(context, () -> SyncedLooks.begin(payload)),
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         INSTANCE.registerMessage(1, LookPayload.class,
                 (payload, buf) -> payload.write(buf), LookPayload::read,
-                (payload, context) -> onClient(context, () -> SyncedLooks.accept(payload)));
+                (payload, context) -> onClient(context, () -> SyncedLooks.accept(payload)),
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         INSTANCE.registerMessage(2, EditorOpenPayload.class,
                 (payload, buf) -> payload.write(buf), EditorOpenPayload::read,
-                (payload, context) -> onClient(context, () -> EditorBridge.open(payload)));
+                (payload, context) -> onClient(context, () -> EditorBridge.open(payload)),
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         INSTANCE.registerMessage(3, EditorResultPayload.class,
                 (payload, buf) -> payload.write(buf), EditorResultPayload::read,
-                (payload, context) -> onClient(context, () -> EditorBridge.result(payload)));
+                (payload, context) -> onClient(context, () -> EditorBridge.result(payload)),
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
         // The only two a client sends, and their contents are untrusted.
         INSTANCE.registerMessage(4, EditorSavePayload.class,
                 (payload, buf) -> payload.write(buf), EditorSavePayload::read,
-                (payload, context) -> onServer(context, player -> EditCommand.save(player, payload)));
+                (payload, context) -> onServer(context, player -> EditCommand.save(player, payload)),
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
         INSTANCE.registerMessage(5, EditorTradesPayload.class,
                 (payload, buf) -> payload.write(buf), EditorTradesPayload::read,
-                (payload, context) -> onServer(context, player -> EditCommand.trades(player, payload)));
+                (payload, context) -> onServer(context, player -> EditCommand.trades(player, payload)),
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
     /// Decoding already happened on the netty thread; this queues the work onto the client thread.
     private static void onClient(Supplier<NetworkEvent.Context> context, Runnable work) {
-        context.get().enqueueWork(work);
+        if (context.get().getDirection().getReceptionSide().isClient()) {
+            context.get().enqueueWork(work);
+        }
         context.get().setPacketHandled(true);
     }
 
