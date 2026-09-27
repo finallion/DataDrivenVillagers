@@ -72,7 +72,6 @@ public final class ProfessionRegistry {
         errors = CopyOnWrite.plus(errors, new LoadError(file, reason));
     }
 
-    /// Called at the start of a reload.
     public static void clearErrors() {
         errors = Collections.emptyList();
     }

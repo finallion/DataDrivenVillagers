@@ -42,7 +42,6 @@ public final class TypeRegistry {
         errors = CopyOnWrite.plus(errors, new LoadError(file, reason));
     }
 
-    /// Emptied at the start of a reload.
     public static void clearErrors() {
         errors = Collections.emptyList();
     }

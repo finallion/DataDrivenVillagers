@@ -13,6 +13,7 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.Optional;
@@ -20,7 +21,7 @@ import java.util.Optional;
 /// Answers the profession's `gift`. Vanilla keeps a private static map of profession to loot table
 /// and asks it twice: `containsKey` checks whether a gift exists, `get` names the loot table.
 /// Vanilla excludes a baby villager before either call runs. NeoForge reads its own data map
-/// instead of this vanilla map, so this mixin is Fabric-only; NeoForge has `RaidHeroGiftMixin`.
+/// instead of this vanilla map, so this mixin is Fabric-only; NeoForge has `GiveGiftsToHeroTaskMixin`.
 @Mixin(GiveGiftsToHeroTask.class)
 public abstract class GiveGiftsToHeroTaskMixin {
 
@@ -39,6 +40,7 @@ public abstract class GiveGiftsToHeroTaskMixin {
         return gift.isPresent() ? gift.get() : original;
     }
 
+    @Unique
     private static Optional<Identifier> datadrivenvillagers$giftId(VillagerEntity villager) {
         return ProfessionBehaviours.of(villager).flatMap(ProfessionDefinition::gift);
     }

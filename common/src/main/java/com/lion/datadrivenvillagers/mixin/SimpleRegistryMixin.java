@@ -36,13 +36,13 @@ public abstract class SimpleRegistryMixin<T> {
     @ModifyVariable(method = "populateTags", at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private Map<TagKey<T>, List<RegistryEntry<T>>> datadrivenvillagers$addJobSites(
             Map<TagKey<T>, List<RegistryEntry<T>>> tags) {
-        if (!isPointOfInterestRegistry() || ProfessionRegistry.poiEntries().isEmpty()) {
+        if (!datadrivenvillagers$isPointOfInterestRegistry() || ProfessionRegistry.poiEntries().isEmpty()) {
             return tags;
         }
 
-        TagKey<T> jobSites = acquirableJobSite();
+        TagKey<T> jobSites = datadrivenvillagers$acquirableJobSite();
         List<RegistryEntry<T>> merged = new ArrayList<>(tags.getOrDefault(jobSites, List.of()));
-        if (append(merged) == 0) {
+        if (datadrivenvillagers$append(merged) == 0) {
             return tags;
         }
 
@@ -52,20 +52,20 @@ public abstract class SimpleRegistryMixin<T> {
     }
 
     @Unique
-    private boolean isPointOfInterestRegistry() {
+    private boolean datadrivenvillagers$isPointOfInterestRegistry() {
         return RegistryKeys.POINT_OF_INTEREST_TYPE.equals(getKey());
     }
 
     @SuppressWarnings("unchecked")
     @Unique
-    private TagKey<T> acquirableJobSite() {
+    private TagKey<T> datadrivenvillagers$acquirableJobSite() {
         return (TagKey<T>) PointOfInterestTypeTags.ACQUIRABLE_JOB_SITE;
     }
 
     /// @return how many were new; a second pass over an already patched list adds nothing
     @SuppressWarnings("unchecked")
     @Unique
-    private int append(List<RegistryEntry<T>> target) {
+    private int datadrivenvillagers$append(List<RegistryEntry<T>> target) {
         int added = 0;
         for (RegistryEntry<PointOfInterestType> entry : ProfessionRegistry.poiEntries()) {
             RegistryEntry<T> cast = (RegistryEntry<T>) entry;

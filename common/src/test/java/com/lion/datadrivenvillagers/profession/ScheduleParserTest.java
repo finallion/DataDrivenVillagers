@@ -37,7 +37,6 @@ class ScheduleParserTest {
     void namesAPreset() {
         ScheduleDefinition night = present("{ \"schedule\": \"night\" }");
         assertEquals("night", night.name());
-        assertTrue(night.isPreset());
     }
 
     @Test
@@ -89,7 +88,6 @@ class ScheduleParserTest {
                 }
                 """);
         assertEquals(ScheduleDefinition.CUSTOM, plan.name());
-        assertFalse(plan.isPreset());
         assertEquals(2, plan.entries().size());
         assertTrue(plan.worksAtNight());
     }

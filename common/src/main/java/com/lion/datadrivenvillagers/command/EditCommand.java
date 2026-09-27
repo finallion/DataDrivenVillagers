@@ -72,7 +72,6 @@ public final class EditCommand {
     private static final Map<UUID, Long> LAST_TRADES = new ConcurrentHashMap<>();
     private static final long SAVE_COOLDOWN_MILLIS = 2000L;
 
-    /// Deliberately without a workstation.
     private static final String TEMPLATE = """
             {
               "_comment": "Made with /ddv edit. Only the workstation is required - pick one from the list under the box, it holds the blocks no other job site has claimed."
@@ -103,6 +102,7 @@ public final class EditCommand {
                     .sorted()
                     .toList();
         } catch (IOException e) {
+            DataDrivenVillagers.LOGGER.debug("Could not list {}", ProfessionLoader.directory(), e);
             return List.of();
         }
     }
@@ -165,7 +165,7 @@ public final class EditCommand {
             return EditorResultPayload.warn("New file. It exists nowhere until you save, and the "
                     + "profession itself only after the next restart.");
         }
-        Identifier id = Identifier.of("datadrivenvillagers", name);
+        Identifier id = DataDrivenVillagers.id(name);
         if (ProfessionRegistry.get(id).isPresent()) {
             return EditorResultPayload.ok("This profession is loaded. Changes to the fields marked "
                     + "with * still need a restart.");
@@ -282,6 +282,8 @@ public final class EditCommand {
     /// The world datapack the trades button writes into; one pack shared by every profession, not one per use.
     private static final String TRADES_PACK = "ddv_trades";
 
+    private static final String VTP_MOD_ID = "villagertradingplus";
+
     /// Writes the VillagerTradingPlus starting file for this profession into the world's own datapacks.
     public static void trades(ServerPlayerEntity player, EditorTradesPayload payload) {
         if (!WriteAccess.allowed(player)) {
@@ -342,7 +344,6 @@ public final class EditCommand {
         // The piece knows its place inside a datapack; the pack folder stands in for "datapack/".
         Path target = pack.resolve(piece.destination().substring("datapack/".length())).normalize();
         if (!target.startsWith(datapacks)) {
-            // Redundant with the pattern above; guards against that pattern being loosened later.
             reply(player, false, List.of(EditorResultPayload.bad(
                     "That name does not stay inside the world's datapacks folder.")));
             return;
@@ -387,7 +388,7 @@ public final class EditCommand {
     }
 
     private static void tradesNotes(ProfessionDefinition definition, List<Note> notes) {
-        if (!PlatformInfo.isLoaded("villagertradingplus")) {
+        if (!PlatformInfo.isLoaded(VTP_MOD_ID)) {
             notes.add(EditorResultPayload.warn(
                     "VillagersTradingPlus is not installed - nothing reads this file yet."));
         }
@@ -423,17 +424,17 @@ public final class EditCommand {
             });
         }
 
-        // Silence is not success: a file the reload said nothing about changed nothing the running game can see.
+        // A file the reload said nothing about changed nothing the running game can see.
         if (!spoken) {
             notes.add(EditorResultPayload.warn("The reload had nothing to say about this file."));
         }
 
         // Asked of the registry only when the outcome has not said it, to avoid a second restart line on screen.
-        if (!saidRestart && ProfessionRegistry.get(Identifier.of("datadrivenvillagers", name)).isEmpty()) {
+        if (!saidRestart && ProfessionRegistry.get(DataDrivenVillagers.id(name)).isEmpty()) {
             notes.add(EditorResultPayload.warn("Restart the game to create this profession."));
         }
 
-        // Broadcast without a chat line; it was the least important note on a screen short of room.
+        // Broadcast has no note here; the screen has no room left for it.
         LookSync.broadcast(server);
         return notes;
     }

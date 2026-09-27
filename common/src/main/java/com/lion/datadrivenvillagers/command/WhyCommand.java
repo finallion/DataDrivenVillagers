@@ -46,7 +46,6 @@ import net.minecraft.structure.StructureTemplate;
 import net.minecraft.structure.pool.SinglePoolElement;
 import net.minecraft.structure.pool.StructurePool;
 import net.minecraft.structure.pool.StructurePoolElement;
-import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
@@ -77,6 +76,10 @@ public final class WhyCommand {
 
     private static final SuggestionProvider<ServerCommandSource> KNOWN_NAMES =
             (context, builder) -> CommandSource.suggestIdentifiers(knownNames(), builder);
+
+    private static final int STATION_RADIUS = 48;
+    private static final int SHORT_LIST_LIMIT = 3;
+    private static final int MAX_LISTED = 8;
 
     private WhyCommand() {
     }
@@ -139,8 +142,6 @@ public final class WhyCommand {
     private static Identifier ours(Identifier asked) {
         return DataDrivenVillagers.id(asked.getPath());
     }
-
-    // ---------------------------------------------------------------- professions
 
     /// Chain: profession registered, accepts a job site, job site in `acquirable_job_site`, a block leads back to it.
     static Report professionReport(ServerCommandSource source, ProfessionDefinition definition) {
@@ -362,12 +363,13 @@ public final class WhyCommand {
                 .distinct().sorted().toList();
     }
 
-    /// Cut after three, so a line stays a line; `/ddv blocks` has the full list.
+    /// Cut after `SHORT_LIST_LIMIT`, so a line stays a line; `/ddv blocks` has the full list.
     private static String shortList(List<String> blocks) {
-        if (blocks.size() <= 3) {
+        if (blocks.size() <= SHORT_LIST_LIMIT) {
             return and(blocks);
         }
-        return String.join(", ", blocks.subList(0, 3)) + " and " + (blocks.size() - 3) + " more";
+        return String.join(", ", blocks.subList(0, SHORT_LIST_LIMIT)) + " and "
+                + (blocks.size() - SHORT_LIST_LIMIT) + " more";
     }
 
     /// In parentheses, for appending to a line that already says something.
@@ -384,28 +386,29 @@ public final class WhyCommand {
         return String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.getLast();
     }
 
-    /// Blocks of this job site within 48 blocks of the player, with free places and who holds the rest.
+    /// Blocks of this job site within `STATION_RADIUS` blocks of the player, with free places and who holds the rest.
     private static void placed(Report report, ServerCommandSource source, RegistryEntry<PointOfInterestType> poi) {
         BlockPos here = BlockPos.ofFloored(source.getPosition());
         List<PointOfInterest> stations = source.getWorld().getPointOfInterestStorage()
-                .getInCircle(entry -> entry.value() == poi.value(), here, 48, PointOfInterestStorage.OccupationStatus.ANY)
+                .getInCircle(entry -> entry.value() == poi.value(), here, STATION_RADIUS,
+                        PointOfInterestStorage.OccupationStatus.ANY)
                 .toList();
         if (stations.isEmpty()) {
             // Names the block so the player knows what to place; "block of this job site" would not say.
             List<String> blocks = jobSiteBlocks(poi);
             report.extra("placed", Text.literal("no "
                             + (blocks.isEmpty() ? "block of this job site" : shortList(blocks))
-                            + " within 48 blocks of you")
+                            + " within " + STATION_RADIUS + " blocks of you")
                     .formatted(Formatting.GRAY));
             return;
         }
         // Lines first: the summary's unaccounted-for note depends on what describe() counted.
         Holders holders = Holders.around(source.getWorld(), here);
         List<Note> notes = new ArrayList<>();
-        stations.stream().limit(8).forEach(station -> notes.add(new Note(station.hasSpace(),
+        stations.stream().limit(MAX_LISTED).forEach(station -> notes.add(new Note(station.hasSpace(),
                 station.getPos().toShortString() + "  " + holders.describe(station))));
         long withSpace = stations.stream().filter(PointOfInterest::hasSpace).count();
-        report.extra("placed", Text.literal(stations.size() + " block(s) within 48 blocks of you, " + withSpace
+        report.extra("placed", Text.literal(stations.size() + " block(s) within " + STATION_RADIUS + " blocks of you, " + withSpace
                 + " with a free place" + holders.unaccountedNote())
                 .formatted(withSpace == 0 ? Formatting.YELLOW : Formatting.GRAY));
         report.notes(notes, Formatting.GREEN);
@@ -536,8 +539,6 @@ public final class WhyCommand {
         report.extra("gift", Text.literal(id + (usable ? "" : "  no such loot table, or it is empty"))
                 .formatted(usable ? Formatting.GRAY : Formatting.RED));
     }
-
-    // ---------------------------------------------------------------- villager types
 
     /// Chain: type registered, named biomes (startup), tagged biomes (tag bind); reads BIOME_TO_TYPE live.
     static Report typeReport(ServerCommandSource source, TypeDefinition definition) {
@@ -670,8 +671,6 @@ public final class WhyCommand {
         report.notes(notes);
     }
 
-    // ---------------------------------------------------------------- structures
-
     /// Chain: template readable, has a jigsaw block, is in the pools; without one, a piece is silently never placed.
     static Report structureReport(ServerCommandSource source, StructureDefinition definition) {
         Report report = new Report();
@@ -753,17 +752,17 @@ public final class WhyCommand {
         List<Note> notes = new ArrayList<>();
         int found = 0;
         for (Identifier poolId : definition.targetPools()) {
-            StructurePool pool = registry.getOrEmpty(poolId).orElse(null);
-            if (pool == null) {
+            Optional<StructurePool> pool = registry.getOrEmpty(poolId);
+            if (pool.isEmpty()) {
                 notes.add(new Note(false, poolId + "  no such pool in this world"));
                 continue;
             }
-            int copies = countIn(pool, definition.templateId(poolId));
+            int copies = countIn(pool.get(), definition.templateId(poolId));
             if (copies == 0) {
                 notes.add(new Note(false, poolId + "  not in it"));
             } else {
                 found++;
-                notes.add(new Note(true, poolId + "  " + copies + " of " + pool.getElementCount() + " draw(s)"));
+                notes.add(new Note(true, poolId + "  " + copies + " of " + pool.get().getElementCount() + " draw(s)"));
             }
         }
 
@@ -791,8 +790,6 @@ public final class WhyCommand {
         }
         return copies;
     }
-
-    // ---------------------------------------------------------------- shared
 
     /// @param optional true for an override, which keeps the overridden profession's texture
     private static void texture(Report report, Optional<Identifier> identifier, Optional<String> file,
@@ -854,6 +851,7 @@ public final class WhyCommand {
             long size = Files.size(png);
             return size > LookSync.MAX_PNG_BYTES ? OptionalLong.of(size) : OptionalLong.empty();
         } catch (IOException e) {
+            DataDrivenVillagers.LOGGER.debug("Could not read the size of {}", png, e);
             return OptionalLong.empty();
         }
     }

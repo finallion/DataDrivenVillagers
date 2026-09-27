@@ -78,8 +78,8 @@ public final class ExportCommand {
         }
 
         Path professions = ProfessionLoader.directory();
-        Path json = ConfigFiles.resolveInside(professions, definition.name() + ".json").orElse(null);
-        if (json == null || !Files.isRegularFile(json, LinkOption.NOFOLLOW_LINKS)) {
+        Optional<Path> json = ConfigFiles.resolveInside(professions, definition.name() + ".json");
+        if (json.isEmpty() || !Files.isRegularFile(json.get(), LinkOption.NOFOLLOW_LINKS)) {
             // Loaded but deleted from disk since, or replaced by a symlink.
             source.sendError(Text.literal(ConfigFiles.relative(professions.resolve(definition.name() + ".json"))
                     + " is gone, so there is nothing to export. The profession stays loaded until the "
@@ -98,7 +98,7 @@ public final class ExportCommand {
             // Overwritten: a zip is built from the parts, never edited in place.
             ConfigFiles.writeAtomically(zip, stream -> {
                 try (ZipOutputStream out = new ZipOutputStream(stream, StandardCharsets.UTF_8)) {
-                    profession(out, definition, json, included);
+                    profession(out, definition, json.get(), included);
                     texture(out, definition, professions, included);
 
                     write(out, "datapack/pack.mcmeta", Scaffold.datapackMeta(definition));

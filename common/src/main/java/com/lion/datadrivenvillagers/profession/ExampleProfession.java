@@ -20,7 +20,6 @@ final class ExampleProfession {
     private static final String EXAMPLE_TEXTURE_RESOURCE =
             "/assets/datadrivenvillagers/example/example_baker.png";
 
-    /// Package private so the test parses it with the same rules an author's file gets.
     static final String EXAMPLE = """
             {
               "workstation": "minecraft:structure_block",
@@ -190,6 +189,7 @@ final class ExampleProfession {
                 return;
             }
         } catch (IOException e) {
+            DataDrivenVillagers.LOGGER.debug("Could not list {}", dir, e);
             return;
         }
 

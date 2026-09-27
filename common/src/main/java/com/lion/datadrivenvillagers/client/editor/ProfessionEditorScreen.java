@@ -28,6 +28,8 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 
+import org.lwjgl.glfw.GLFW;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,9 +40,8 @@ import java.util.function.Function;
 
 /// Builds a profession without leaving the game, and explains every field while it does.
 ///
-/// The screen is the short half of the loop the mod already had: write a file, reload, read `/ddv
-/// why`, correct. It takes the writing and the reloading away and keeps the reading - a save runs the
-/// same reload as the command and puts the same answer at the bottom of this screen.
+/// A save runs the same reload `/ddv edit` runs from the command line, and puts the same
+/// answer at the bottom of this screen.
 public final class ProfessionEditorScreen extends Screen {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
@@ -54,11 +55,9 @@ public final class ProfessionEditorScreen extends Screen {
     private static final int SCROLLBAR = 10;
     private static final int SCROLLBAR_WIDTH = 6;
     private static final int SUGGESTION_HEIGHT = 12;
-    private static final int ESCAPE = 256;
     /// How many wrapped report lines get room; overflow is cut by the scissor in render, never painted over rows.
     private static final int STATUS_LINES = 5;
 
-    /// Colours carry full alpha: from 1.21.6 on, the text renderer draws alpha zero as invisible.
     private static final int TITLE = 0xFFFFFFFF;
     private static final int LABEL = 0xFFA0A0A0;
     private static final int HINT = 0xFF707070;
@@ -389,8 +388,6 @@ public final class ProfessionEditorScreen extends Screen {
         clearAndInit();
     }
 
-    // ---- rows -----------------------------------------------------------------------------------
-
     private void field(int left, int content, int y, Spec spec) {
         String value = switch (spec.shape()) {
             case TEXT -> JsonEdit.text(root, spec.key());
@@ -522,8 +519,6 @@ public final class ProfessionEditorScreen extends Screen {
         return fallback;
     }
 
-    // ---- the two fields that cannot be a plain box ----------------------------------------------
-
     private FearMode readFearMode() {
         if (JsonEdit.has(root, "flees_only_from")) {
             return JsonEdit.isEmptyArray(root, "flees_only_from") ? FearMode.NOTHING : FearMode.REPLACE;
@@ -571,8 +566,6 @@ public final class ProfessionEditorScreen extends Screen {
         }
         clearAndInit();
     }
-
-    // ---- suggestions under the focused box -------------------------------------------------------
 
     private void updateSuggestions() {
         if (getFocused() != lastFocused) {
@@ -640,15 +633,13 @@ public final class ProfessionEditorScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == ESCAPE && !suggestions.isEmpty()) {
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE && !suggestions.isEmpty()) {
             suggestionsClosed = true;
             suggestions = List.of();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
-
-    // ---- sending and drawing --------------------------------------------------------------------
 
     private void save() {
         if (fileName == null || fileName.isEmpty()) {

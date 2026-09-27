@@ -4,8 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "minVersion": "0.8",
   "mixins": [
-    "RaidHeroGiftMixin",
-    "VillagerTypeByBiomeMixin"
+    "GiveGiftsToHeroTaskMixin",
+    "VillagerTypeMixin"
   ],
   "injectors": {
     "defaultRequire": 1

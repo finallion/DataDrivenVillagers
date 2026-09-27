@@ -18,7 +18,6 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.MinecraftServer;
@@ -133,7 +132,6 @@ public final class ProfessionLoader {
         while (iterator.hasNext()) {
             ProfessionDefinition definition = iterator.next();
             if (definition.isOverride()) {
-                // Uses an existing job site, nothing to build.
                 continue;
             }
             try {
@@ -501,10 +499,11 @@ public final class ProfessionLoader {
             return "";
         }
 
-        RegistryEntry<PointOfInterestType> poi = jobSiteFor(next).orElse(null);
-        if (poi == null) {
+        Optional<RegistryEntry<PointOfInterestType>> jobSite = jobSiteFor(next);
+        if (jobSite.isEmpty()) {
             return "blocks unchanged, there is no job site to move them to";
         }
+        RegistryEntry<PointOfInterestType> poi = jobSite.get();
 
         int released = 0;
         int claimed = 0;
@@ -584,10 +583,11 @@ public final class ProfessionLoader {
     }
 
     private static void releaseWorkstations(ProfessionDefinition gone) {
-        RegistryEntry<PointOfInterestType> poi = jobSiteFor(gone).orElse(null);
-        if (poi == null) {
+        Optional<RegistryEntry<PointOfInterestType>> jobSite = jobSiteFor(gone);
+        if (jobSite.isEmpty()) {
             return;
         }
+        RegistryEntry<PointOfInterestType> poi = jobSite.get();
         for (Identifier blockId : gone.isOverride() ? gone.addWorkstations() : gone.workstations()) {
             releaseBlock(blockId, poi);
         }
@@ -661,14 +661,14 @@ public final class ProfessionLoader {
     /// Runs at server start. Restores POI states a registry refresh dropped, then retries rejected overrides.
     public static void reapplyAtServerStart() {
         for (ProfessionDefinition definition : ProfessionRegistry.ordered()) {
-            RegistryEntry<PointOfInterestType> jobSite = jobSiteFor(definition).orElse(null);
-            if (jobSite == null) {
+            Optional<RegistryEntry<PointOfInterestType>> jobSite = jobSiteFor(definition);
+            if (jobSite.isEmpty()) {
                 continue;
             }
             List<Identifier> blocks = definition.isOverride()
                     ? definition.addWorkstations()
                     : definition.workstations();
-            reclaim(definition.target(), blocks, jobSite, definition.allowNaturalBlock());
+            reclaim(definition.target(), blocks, jobSite.get(), definition.allowNaturalBlock());
         }
         retryRejectedOverrides();
         for (String warning : naturalBlockWarnings()) {
@@ -694,7 +694,7 @@ public final class ProfessionLoader {
                     continue;
                 }
                 // The fixed lists cover vanilla; the tags only catch bulk-placed blocks of other mods.
-                if (!definition.allowNaturalBlock() && !blockId.getNamespace().equals("minecraft")
+                if (!definition.allowNaturalBlock() && !blockId.getNamespace().equals(Identifier.DEFAULT_NAMESPACE)
                         && generatesInBulk(block.get().getDefaultState())) {
                     warnings.add(definition.target() + " claims " + blockId + ", which world generation "
                             + "likely places in bulk; set \"allow_natural_block\": true if that is intended");

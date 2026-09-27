@@ -18,7 +18,7 @@ import java.util.Optional;
 /// answers first for a biome DDV names in `biomes`, so that claim wins over the data map. A biome DDV
 /// claims only through a tag is not covered here; the data map keeps the last word for it.
 @Mixin(VillagerType.class)
-public abstract class VillagerTypeByBiomeMixin {
+public abstract class VillagerTypeMixin {
 
     @Inject(method = "forBiome", at = @At("HEAD"), cancellable = true)
     private static void datadrivenvillagers$ownClaimFirst(RegistryEntry<Biome> biomeEntry,

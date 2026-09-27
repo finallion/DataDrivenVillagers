@@ -9,9 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/// Reads a field out of the author's {@link JsonObject} as one line of text and writes it back. Only
+/// Reads a field out of the author's `JsonObject` as one line of text and writes it back. Only
 /// keys with a widget are touched, so `_comment` and unknown fields survive a round trip. A blank
-/// value removes the key; the one field where an empty list has meaning ({@code flees_only_from}) is
+/// value removes the key; the one field where an empty list has meaning (`flees_only_from`) is
 /// written by its own button.
 public final class JsonEdit {
 
@@ -23,8 +23,6 @@ public final class JsonEdit {
 
     private JsonEdit() {
     }
-
-    // ---- plain values -------------------------------------------------------------------------
 
     public static String text(JsonObject root, String key) {
         JsonElement element = root.get(key);
@@ -72,8 +70,6 @@ public final class JsonEdit {
         }
     }
 
-    // ---- lists of identifiers -----------------------------------------------------------------
-
     /// Accepts a bare string or an array, like the parser.
     public static String list(JsonObject root, String key) {
         JsonElement element = root.get(key);
@@ -104,9 +100,7 @@ public final class JsonEdit {
         }
     }
 
-    // ---- lists of entities, each with an optional distance --------------------------------------
-
-    /// `minecraft:zombie@10, minecraft:skeleton`: the two shapes {@code EntityRange} parses.
+    /// `minecraft:zombie@10, minecraft:skeleton`: the two shapes `EntityRange` parses.
     public static String ranges(JsonObject root, String key) {
         JsonElement element = root.get(key);
         if (element == null || element.isJsonNull() || !element.isJsonArray()) {
@@ -126,7 +120,7 @@ public final class JsonEdit {
         return String.join(SEPARATOR, parts);
     }
 
-    /// Always an array. Blank removes the key; {@code flees_only_from}'s button writes `[]` itself.
+    /// Always an array. Blank removes the key; `flees_only_from`'s button writes `[]` itself.
     public static void setRanges(JsonObject root, String key, String value) {
         if (value.trim().isEmpty()) {
             root.remove(key);
@@ -146,8 +140,6 @@ public final class JsonEdit {
         }
         root.add(key, array);
     }
-
-    // ---- the day plan ---------------------------------------------------------------------------
 
     /// `2000=work, 9000=meet`.
     public static String schedule(JsonObject root, String key) {
@@ -183,8 +175,6 @@ public final class JsonEdit {
         root.add(key, array);
     }
 
-    // ---- shared -------------------------------------------------------------------------------
-
     public static boolean has(JsonObject root, String key) {
         return root.has(key) && !root.get(key).isJsonNull();
     }
@@ -199,7 +189,7 @@ public final class JsonEdit {
         return element.isJsonPrimitive() ? element.getAsString() : element.toString();
     }
 
-    /// Key present with an empty array: for {@code flees_only_from} that means "fears nothing".
+    /// Key present with an empty array: for `flees_only_from` that means "fears nothing".
     public static boolean isEmptyArray(JsonObject root, String key) {
         JsonElement element = root.get(key);
         return element != null && element.isJsonArray() && element.getAsJsonArray().isEmpty();

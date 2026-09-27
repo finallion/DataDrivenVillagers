@@ -14,10 +14,10 @@ import net.neoforged.neoforge.registries.datamaps.builtin.RaidHeroGift;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-/// NeoForge reads the hero gift from its `raid_hero_gifts` data map instead of vanilla's map, and a
-/// datapack cannot name our professions before they exist. The profession's `gift` wins over the map.
+/// NeoForge reads the hero gift from its `raid_hero_gifts` data map instead of vanilla's map. The
+/// profession's own `gift` field wins over the map, when the file sets one.
 @Mixin(GiveGiftsToHeroTask.class)
-public abstract class RaidHeroGiftMixin {
+public abstract class GiveGiftsToHeroTaskMixin {
 
     @ModifyExpressionValue(method = "getGifts", require = 0, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/registry/entry/RegistryEntry;getData(Lnet/neoforged/neoforge/registries/datamaps/DataMapType;)Ljava/lang/Object;"))

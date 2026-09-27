@@ -13,8 +13,8 @@ import java.util.Optional;
 /// Applies a profession's health and attack damage as transient attribute modifiers, never as the base value.
 public final class ProfessionAttributes {
 
-    public static final Identifier HEALTH_MODIFIER_ID = Identifier.of(DataDrivenVillagers.MOD_ID, "profession_health");
-    public static final Identifier ATTACK_MODIFIER_ID = Identifier.of(DataDrivenVillagers.MOD_ID, "profession_attack");
+    public static final Identifier HEALTH_MODIFIER_ID = DataDrivenVillagers.id("profession_health");
+    public static final Identifier ATTACK_MODIFIER_ID = DataDrivenVillagers.id("profession_attack");
 
     private ProfessionAttributes() {
     }
