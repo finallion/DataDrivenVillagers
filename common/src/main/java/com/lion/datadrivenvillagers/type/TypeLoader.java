@@ -253,12 +253,12 @@ public final class TypeLoader {
         claims.named.clear();
     }
 
-    /// Server start and stop hook of both loaders: a tag claim from a past world must not survive into the next one.
+    /// Server stop hook: a tag claim from a past world must not survive into the next one.
     public static void releaseTagClaims() {
         Claims claims = Claims.ofCurrent();
-        for (Map.Entry<RegistryKey<Biome>, VillagerType> claim : new HashMap<>(claims.own).entrySet()) {
+        for (Map.Entry<RegistryKey<Biome>, RegistryKey<VillagerType>> claim : new HashMap<>(claims.own).entrySet()) {
             RegistryKey<Biome> biome = claim.getKey();
-            if (claims.named.containsKey(biome) || claims.biomeToType.get(biome) != claim.getValue()) {
+            if (claims.named.containsKey(biome) || !claim.getValue().equals(claims.biomeToType.get(biome))) {
                 continue;
             }
             DISPLACED.getOrDefault(biome, Optional.empty()).ifPresentOrElse(
