@@ -162,6 +162,10 @@ public final class ProfessionEditorScreen extends Screen {
             // What the server currently holds for this file, shown before the first keystroke.
             this.status = List.of(payload.state());
         }
+        // The attack boxes can only show an object; any other value would survive a save unseen.
+        if (parsed.has("attack") && !parsed.get("attack").isJsonObject()) {
+            parsed.remove("attack");
+        }
         this.root = parsed;
         this.fearMode = readFearMode();
         this.planMode = readPlanMode();
