@@ -55,7 +55,7 @@ public final class ProfessionEditorScreen extends Screen {
     private static final int ROW_STEP = ROW_HEIGHT + 4;
     private static final int ROWS_TOP = 70;
     /// Room the row list leaves on its right edge for the scrollbar it draws itself.
-    private static final int ROW_GUTTER = 10;
+    private static final int ROW_GUTTER = 20;
     private static final int SUGGESTION_HEIGHT = 12;
     /// How many wrapped report lines get room; overflow is cut by the scissor in render, never painted over rows.
     private static final int STATUS_LINES = 5;
@@ -180,6 +180,9 @@ public final class ProfessionEditorScreen extends Screen {
             button.active = value != tab;
         }
 
+        // Kept across a re-init that leaves the page unchanged; switchTo clears it to jump to the new page's top.
+        double scroll = rowList == null ? 0 : rowList.getScrollAmount();
+
         rowList = new EditorRowList(MinecraftClient.getInstance(), content, rowsBottom() - ROWS_TOP, ROWS_TOP,
                 ROW_STEP, ROW_GUTTER);
         rowList.setX(left);
@@ -269,6 +272,7 @@ public final class ProfessionEditorScreen extends Screen {
             }
         }
 
+        rowList.setScrollAmount(scroll);
         addDrawableChild(rowList);
 
         int buttons = height - 28;
@@ -293,6 +297,8 @@ public final class ProfessionEditorScreen extends Screen {
 
     private void switchTo(Tab value) {
         tab = value;
+        // A page change starts at the top; only a same-page re-init keeps the scroll.
+        rowList = null;
         clearAndInit();
     }
 
@@ -332,7 +338,8 @@ public final class ProfessionEditorScreen extends Screen {
     /// The label carries the help text as a vanilla tooltip.
     private TextFieldWidget box(Spec spec, String value, Consumer<String> onChange) {
         TextWidget label = new TextWidget(LABEL_WIDTH, ROW_HEIGHT, Text.literal(spec.label()), textRenderer)
-                .alignLeft();
+                .alignLeft()
+                .setTextColor(LABEL);
         label.setTooltip(Tooltip.of(Text.literal(spec.help())));
 
         TextFieldWidget widget = new TextFieldWidget(textRenderer, fieldWidth(), ROW_HEIGHT, Text.literal(spec.label()));
@@ -382,7 +389,8 @@ public final class ProfessionEditorScreen extends Screen {
     /// The one action here reaching past the profession file: writes into the world's own datapacks.
     private void tradesButton() {
         TextWidget label = new TextWidget(LABEL_WIDTH, ROW_HEIGHT, Text.literal("Default trades"), textRenderer)
-                .alignLeft();
+                .alignLeft()
+                .setTextColor(LABEL);
         label.setTooltip(Tooltip.of(Text.literal("""
                 Writes the VillagersTradingPlus starting file for this profession
                 into this world's own datapacks, filled in from the saved file -
@@ -404,7 +412,8 @@ public final class ProfessionEditorScreen extends Screen {
     private <T> void cycle(String label, T[] values, T initial, Function<T, Text> name, Consumer<T> onChange,
                             String help) {
         TextWidget labelWidget = new TextWidget(LABEL_WIDTH, ROW_HEIGHT, Text.literal(label), textRenderer)
-                .alignLeft();
+                .alignLeft()
+                .setTextColor(LABEL);
         labelWidget.setTooltip(Tooltip.of(Text.literal(help)));
         CyclingButtonWidget<T> widget = CyclingButtonWidget.builder(name)
                 .values(values)
@@ -493,6 +502,12 @@ public final class ProfessionEditorScreen extends Screen {
                 || !inView(widget.getY())) {
             return;
         }
+        // A row stops being positioned once it scrolls out, so its widget's own y can be stale for this frame.
+        EditorRowList.Row row = rowList.getFocused();
+        int index = row == null ? -1 : rowList.children().indexOf(row);
+        if (index < 0 || !inView(rowList.rowTop(index))) {
+            return;
+        }
         Source source = sources.get(widget);
         if (source == null || source == Source.NONE) {
             return;
@@ -559,8 +574,9 @@ public final class ProfessionEditorScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        updateSuggestions();
         super.render(context, mouseX, mouseY, delta);
+        // Runs after the rows are placed for this frame, so a row that just scrolled out is not read as in view.
+        updateSuggestions();
 
         int content = Math.min(MAX_CONTENT, width - 40);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 14, TITLE);

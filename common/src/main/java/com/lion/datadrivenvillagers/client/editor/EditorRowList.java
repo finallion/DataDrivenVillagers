@@ -25,9 +25,48 @@ public final class EditorRowList extends ElementListWidget<EditorRowList.Row> {
         return getWidth() - rowGutter;
     }
 
+    /// Vanilla's default sits past this list's own right edge; this keeps the bar inside it.
+    @Override
+    protected int getScrollbarX() {
+        return getRight() - 6;
+    }
+
     /// `addEntry` itself is protected; the screen that fills this list is not a subclass of it.
     public void addRow(Row row) {
         addEntry(row);
+    }
+
+    /// `getRowTop` itself is protected; the screen checking row visibility is not a subclass of it.
+    public int rowTop(int index) {
+        return getRowTop(index);
+    }
+
+    /// Vanilla's `setFocused(boolean)` is a no-op, so a field kept its cursor after focus moved elsewhere.
+    @Override
+    public void setFocused(boolean focused) {
+        if (!focused) {
+            clearFieldFocus();
+        }
+        super.setFocused(focused);
+    }
+
+    /// Vanilla keeps a field focused after it scrolls out of view; this drops focus so it stops eating keys.
+    @Override
+    public void setScrollAmount(double amount) {
+        super.setScrollAmount(amount);
+        Row focused = getFocused();
+        int index = focused == null ? -1 : children().indexOf(focused);
+        if (index >= 0 && (getRowTop(index) < getY() || getRowBottom(index) > getBottom())) {
+            clearFieldFocus();
+        }
+    }
+
+    private void clearFieldFocus() {
+        Row focused = getFocused();
+        if (focused != null) {
+            focused.setFocused(null);
+        }
+        setFocused(null);
     }
 
     /// The list places both widgets again on every render, so scrolling needs no extra code.
