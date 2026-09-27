@@ -178,18 +178,9 @@ public final class EditCommand {
                         + "profession is only created while the game starts. Restart to bring it in."));
     }
 
-    /// A file saved before names were held to lower case still opens and saves under its own spelling.
     private static Optional<Path> find(String name) {
         Path exact = ProfessionLoader.directory().resolve(name + EXTENSION);
-        if (Files.isRegularFile(exact)) {
-            return Optional.of(exact);
-        }
-        try (Stream<Path> stream = Files.list(ProfessionLoader.directory())) {
-            return stream.filter(path -> path.getFileName().toString()
-                    .equalsIgnoreCase(name + EXTENSION)).findFirst();
-        } catch (IOException e) {
-            return Optional.empty();
-        }
+        return Files.isRegularFile(exact) ? Optional.of(exact) : Optional.empty();
     }
 
     /// Parses before writing, so a file the loader would reject never replaces a working profession on disk.
@@ -368,6 +359,12 @@ public final class EditCommand {
 
         try {
             Files.createDirectories(target.getParent());
+            // toRealPath needs every segment to exist, so it catches a symlink only after createDirectories.
+            if (!target.getParent().toRealPath().startsWith(datapacks.toRealPath())) {
+                reply(player, false, List.of(EditorResultPayload.bad(
+                        "That name does not stay inside the world's datapacks folder.")));
+                return;
+            }
             Path meta = pack.resolve("pack.mcmeta");
             if (!Files.isRegularFile(meta)) {
                 ConfigFiles.writeAtomically(meta, Scaffold.tradesPackMeta());
@@ -392,7 +389,7 @@ public final class EditCommand {
     private static void tradesNotes(ProfessionDefinition definition, List<Note> notes) {
         if (!PlatformInfo.isLoaded("villagertradingplus")) {
             notes.add(EditorResultPayload.warn(
-                    "VillagerTradingPlus is not installed - nothing reads this file yet."));
+                    "VillagersTradingPlus is not installed - nothing reads this file yet."));
         }
         int total = knownTrades(definition);
         if (total > 0) {

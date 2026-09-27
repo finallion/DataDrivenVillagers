@@ -7,6 +7,7 @@ import com.lion.datadrivenvillagers.JsonFields;
 
 import net.minecraft.util.Identifier;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -71,6 +72,8 @@ public final class ProfessionParser {
 
         List<Identifier> gatherable = JsonFields.identifiers(root, "gatherable_items", false);
         List<Identifier> secondarySites = JsonFields.identifiers(root, "secondary_job_sites", false);
+        int ticketCount = JsonFields.positiveInt(root, "ticket_count", DEFAULT_TICKET_COUNT);
+        int searchDistance = JsonFields.positiveInt(root, "search_distance", DEFAULT_SEARCH_DISTANCE);
         if (workBehaviour == WorkBehaviour.FARM && overrides.isPresent()
                 && !overrides.get().equals(new Identifier("farmer"))) {
             // The farm task needs farmland in SECONDARY_JOB_SITE; an override's target has that frozen.
@@ -86,6 +89,11 @@ public final class ProfessionParser {
             if (secondarySites.isEmpty()) {
                 secondarySites = FARM_SECONDARY_SITES;
             }
+        }
+
+        if (overrides.isPresent()) {
+            rejectCreationOnlyFields(displayName, workSound, gatherable, secondarySites,
+                    ticketCount, searchDistance);
         }
 
         return new ProfessionDefinition(
@@ -110,8 +118,37 @@ public final class ProfessionParser {
                 attack,
                 health,
                 villages,
-                JsonFields.positiveInt(root, "ticket_count", DEFAULT_TICKET_COUNT),
-                JsonFields.positiveInt(root, "search_distance", DEFAULT_SEARCH_DISTANCE));
+                ticketCount,
+                searchDistance);
+    }
+
+    /// Fields only read while creating a profession or job site; an override modifies a profession that already exists.
+    private static void rejectCreationOnlyFields(Optional<String> displayName, Optional<Identifier> workSound,
+            List<Identifier> gatherable, List<Identifier> secondarySites, int ticketCount, int searchDistance) {
+        List<String> rejected = new ArrayList<>();
+        if (displayName.isPresent()) {
+            rejected.add("display_name");
+        }
+        if (workSound.isPresent()) {
+            rejected.add("work_sound");
+        }
+        if (!gatherable.isEmpty()) {
+            rejected.add("gatherable_items");
+        }
+        if (!secondarySites.isEmpty()) {
+            rejected.add("secondary_job_sites");
+        }
+        if (ticketCount != DEFAULT_TICKET_COUNT) {
+            rejected.add("ticket_count");
+        }
+        if (searchDistance != DEFAULT_SEARCH_DISTANCE) {
+            rejected.add("search_distance");
+        }
+        if (!rejected.isEmpty()) {
+            throw new DefinitionParseException("\"overrides\" cannot set " + rejected + ": "
+                    + (rejected.size() == 1 ? "that field belongs" : "those fields belong")
+                    + " to the profession being created, not to the one an override modifies");
+        }
     }
 
     /// `minecraft:farmer`'s 1.20.1 values (`VillagerProfession.register`): four items, not the six newer versions have.

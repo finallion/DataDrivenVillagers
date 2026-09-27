@@ -138,16 +138,18 @@ public final class ConfigFiles {
 
         for (int attempt = 0; attempt < TEMP_NAME_ATTEMPTS; attempt++) {
             Path tmp = folder.resolve(name + "." + UUID.randomUUID() + ".tmp");
-            try (OutputStream stream = Files.newOutputStream(tmp, StandardOpenOption.CREATE_NEW,
-                    StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
-                writer.write(stream);
+            OutputStream stream;
+            // Only this call names a collision; one thrown by the writer itself is not a temp name retry.
+            try {
+                stream = Files.newOutputStream(tmp, StandardOpenOption.CREATE_NEW,
+                        StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
             } catch (FileAlreadyExistsException e) {
                 lastCollision = e;
                 continue;
-            } catch (IOException e) {
-                deleteQuietly(tmp, e);
-                throw e;
-            } catch (RuntimeException e) {
+            }
+            try (OutputStream toClose = stream) {
+                writer.write(toClose);
+            } catch (Throwable e) {
                 deleteQuietly(tmp);
                 throw e;
             }

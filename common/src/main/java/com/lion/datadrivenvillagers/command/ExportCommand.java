@@ -209,7 +209,7 @@ public final class ExportCommand {
         out.append("                are registered before Minecraft reads any pack, which is too late.\n");
         out.append("                Changing this needs a restart, not /reload.\n");
         out.append("datapack/       zip its contents, or drop the folder into <world>/datapacks/.\n");
-        out.append("                Trades need VillagerTradingPlus installed. The gift is a plain loot\n");
+        out.append("                Trades need VillagersTradingPlus installed. The gift is a plain loot\n");
         out.append("                table and needs nothing.\n");
         out.append("resourcepack/   zip its contents, or drop the folder into .minecraft/resourcepacks/.\n");
         out.append("                Only the name comes from here. The texture does not: it sits beside\n");

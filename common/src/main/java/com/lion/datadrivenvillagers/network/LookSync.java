@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -32,9 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/// Server side of look sync: builds the packets from the registries and the pngs on disk. Between
-/// reloads a png is only re-read when its definition or its own file's timestamp changed; a reload
-/// itself bumps the mod's generation counter and empties the whole cache.
+/// Server side of look sync: builds the packets from the registries and the pngs on disk. A reload
+/// bumps the mod's generation counter and empties the whole cache, so a png is re-read only then.
 public final class LookSync {
 
     /// Vanilla's `CustomPayloadS2CPacket` refuses larger reads on every channel, and the client disconnects.
@@ -47,8 +45,7 @@ public final class LookSync {
     static final int PACKET_HEADROOM = 16_384;
 
     /// One cached look plus what it was built from, so a later call can tell whether it is still fresh.
-    private record Cached(TexturedDefinition definition, HatKind hat, Optional<FileTime> villagerTime,
-                          Optional<FileTime> zombieTime, LookPayload payload) {
+    private record Cached(TexturedDefinition definition, HatKind hat, LookPayload payload) {
     }
 
     private static final Map<Identifier, Cached> CACHE = new HashMap<>();
@@ -87,32 +84,17 @@ public final class LookSync {
         return payloads;
     }
 
-    /// Reused as long as neither the definition nor the modification time of its own image files changed.
+    /// Reused as long as neither the definition nor the hat changed since this generation's cache was built.
     private static LookPayload cached(LookPayload.Kind kind, Identifier target, TexturedDefinition definition,
                                       HatKind hat, Path folder) {
-        Optional<FileTime> villagerTime = modified(folder, definition.textureFile());
-        Optional<FileTime> zombieTime = modified(folder, definition.zombieTextureFile());
         Cached previous = CACHE.get(target);
-        if (previous != null && previous.definition().equals(definition) && previous.hat() == hat
-                && previous.villagerTime().equals(villagerTime) && previous.zombieTime().equals(zombieTime)) {
+        if (previous != null && previous.definition().equals(definition) && previous.hat() == hat) {
             return previous.payload();
         }
 
         LookPayload built = look(kind, target, definition, hat, folder);
-        CACHE.put(target, new Cached(definition, hat, villagerTime, zombieTime, built));
+        CACHE.put(target, new Cached(definition, hat, built));
         return built;
-    }
-
-    private static Optional<FileTime> modified(Path folder, Optional<String> file) {
-        return file.flatMap(name -> ConfigFiles.resolveInside(folder, name))
-                .filter(Files::isRegularFile)
-                .flatMap(path -> {
-                    try {
-                        return Optional.of(Files.getLastModifiedTime(path));
-                    } catch (IOException e) {
-                        return Optional.empty();
-                    }
-                });
     }
 
     private static LookPayload look(LookPayload.Kind kind, Identifier target, TexturedDefinition definition,

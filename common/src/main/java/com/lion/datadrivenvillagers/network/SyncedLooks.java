@@ -18,7 +18,7 @@ import java.util.Optional;
 public final class SyncedLooks {
 
     /// One definition as the server described it; answers the same questions as {@link TexturedDefinition}.
-    public record Look(LookPayload.Kind kind, Identifier definition, HatKind hat,
+    public record Look(LookPayload.Kind kind, Identifier target, Identifier definition, HatKind hat,
                        Optional<Identifier> texture, Optional<byte[]> png,
                        Optional<Identifier> zombieTexture, Optional<byte[]> zombiePng) {
 
@@ -36,9 +36,9 @@ public final class SyncedLooks {
             return png;
         }
 
-        /// Under `synced/`, so a server texture and one from the client's own file never share an id.
+        /// Built from `target`, not the server-chosen `definition`, so a replaced look reuses the same id.
         public Identifier textureId(String entityType) {
-            return definition.withPath(path -> "textures/entity/" + entityType + "/synced/"
+            return target.withPath(path -> "textures/entity/" + entityType + "/synced/"
                     + kind.lower() + "/" + path + ".png");
         }
     }
@@ -83,8 +83,8 @@ public final class SyncedLooks {
         if (received() >= cap) {
             return;
         }
-        Look look = new Look(payload.kind(), payload.definition(), payload.hat(), payload.texture(),
-                payload.png(), payload.zombieTexture(), payload.zombiePng());
+        Look look = new Look(payload.kind(), payload.target(), payload.definition(), payload.hat(),
+                payload.texture(), payload.png(), payload.zombieTexture(), payload.zombiePng());
         (payload.kind() == LookPayload.Kind.PROFESSION ? PROFESSIONS : TYPES).put(payload.target(), look);
     }
 

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -105,6 +106,20 @@ class ConfigFilesTest {
 
         try (Stream<Path> left = Files.list(folder)) {
             assertEquals(List.of("village.nbt"), left.map(p -> p.getFileName().toString()).sorted().toList());
+        }
+    }
+
+    /// A collision on the random temp name is retried; one thrown by the writer itself names another file.
+    @Test
+    void aFileAlreadyExistsExceptionFromTheWriterIsNotANameCollision(@TempDir Path folder) throws IOException {
+        Path file = folder.resolve("village.nbt");
+
+        assertThrows(FileAlreadyExistsException.class, () -> ConfigFiles.writeAtomically(file, stream -> {
+            throw new FileAlreadyExistsException("somewhere/else.tmp");
+        }));
+
+        try (Stream<Path> left = Files.list(folder)) {
+            assertTrue(left.findAny().isEmpty(), "the temp file must not be left behind");
         }
     }
 

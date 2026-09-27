@@ -15,6 +15,7 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TagsUpdatedEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -35,6 +36,7 @@ public class DataDrivenVillagersForge {
 
         // Template pools are a datapack registry, built per world: nothing to append to before a server exists.
         MinecraftForge.EVENT_BUS.addListener(DataDrivenVillagersForge::onServerAboutToStart);
+        MinecraftForge.EVENT_BUS.addListener(DataDrivenVillagersForge::onServerStopped);
 
         Network.register();
 
@@ -48,8 +50,14 @@ public class DataDrivenVillagersForge {
         ProfessionLoader.reapplyAtServerStart();
     }
 
+    private static void onServerStopped(ServerStoppedEvent event) {
+        TypeLoader.releaseTagClaims();
+    }
+
     private static void onTagsUpdated(TagsUpdatedEvent event) {
-        TypeLoader.claimTags(event.getRegistryAccess().get(RegistryKeys.BIOME));
+        if (event.getUpdateCause() == TagsUpdatedEvent.UpdateCause.SERVER_DATA_LOAD) {
+            TypeLoader.claimTags(event.getRegistryAccess().get(RegistryKeys.BIOME));
+        }
     }
 
     private static void onRegister(RegisterEvent event) {

@@ -164,7 +164,7 @@ final class ExampleProfession {
 
             Trades, gift and name
             ---------------------
-            Trades come from VillagerTradingPlus, the gift is a loot table in a datapack, and the
+            Trades come from VillagersTradingPlus, the gift is a loot table in a datapack, and the
             name is a translation in a resource pack.
 
                 /ddv scaffold example_baker

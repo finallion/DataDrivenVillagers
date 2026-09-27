@@ -66,7 +66,7 @@ class ProfessionReloadTest {
                 new ProfessionRegistry.LoadError("zz_test_farmer_night.json", "broken"));
 
         Map<Identifier, ProfessionDefinition> kept = ProfessionLoader.keptDespiteRejection(previousOf(farmer), errors);
-        assertTrue(kept.containsKey(Identifier.of("minecraft", "farmer")));
+        assertTrue(kept.containsKey(new Identifier("minecraft", "farmer")));
     }
 
     @Test
@@ -110,5 +110,12 @@ class ProfessionReloadTest {
     void isNaturalBlockMatchesTheFixedList() {
         assertTrue(ProfessionLoader.isNaturalBlock(new Identifier("minecraft", "stone")));
         assertFalse(ProfessionLoader.isNaturalBlock(new Identifier("minecraft", "crafting_table")));
+    }
+
+    @Test
+    void isStructureBulkBlockMatchesTheFixedList() {
+        assertTrue(ProfessionLoader.isStructureBulkBlock(new Identifier("minecraft", "cobblestone")));
+        assertTrue(ProfessionLoader.isStructureBulkBlock(new Identifier("minecraft", "stone_bricks")));
+        assertFalse(ProfessionLoader.isStructureBulkBlock(new Identifier("minecraft", "crafting_table")));
     }
 }
