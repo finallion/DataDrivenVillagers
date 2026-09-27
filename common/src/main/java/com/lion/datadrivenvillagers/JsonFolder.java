@@ -8,9 +8,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-/// Every loader's first phase: list the `.json` files in one folder, sorted by name, and hand each to
-/// the caller's own parser. Listing failures are logged with the caller's wording; parsing and rejection
-/// stay the caller's own.
+/// Lists the `.json` files of one folder by name; parsing and rejection stay with the caller.
 public final class JsonFolder {
 
     private static final String EXTENSION = ".json";
