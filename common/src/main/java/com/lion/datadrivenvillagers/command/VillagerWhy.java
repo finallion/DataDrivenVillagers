@@ -1,6 +1,7 @@
 package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.mixin.MerchantEntityAccessor;
+import com.lion.datadrivenvillagers.mixin.VillagerTypeAccessor;
 import com.lion.datadrivenvillagers.profession.Attack;
 import com.lion.datadrivenvillagers.profession.EntityRange;
 import com.lion.datadrivenvillagers.profession.ProfessionBehaviours;
@@ -71,6 +72,11 @@ import java.util.stream.Collectors;
 final class VillagerWhy {
 
     private static final double NEAREST_RADIUS = 16;
+    private static final int STATION_RADIUS = 48;
+    private static final int MAX_LISTED = 8;
+    private static final double BED_REACH = 2.0;
+    private static final int WAKE_COOLDOWN_TICKS = 100;
+    private static final int TICKS_PER_MINUTE = 1200;
 
     private VillagerWhy() {
     }
@@ -86,7 +92,6 @@ final class VillagerWhy {
         ServerCommandSource source = context.getSource();
         Vec3d at = source.getPosition();
         Box box = Box.of(at, NEAREST_RADIUS * 2, NEAREST_RADIUS * 2, NEAREST_RADIUS * 2);
-        // Nearest villager or zombie villager.
         LivingEntity closest = null;
         double best = Double.MAX_VALUE;
         for (LivingEntity candidate : source.getWorld().getEntitiesByClass(LivingEntity.class, box,
@@ -165,7 +170,6 @@ final class VillagerWhy {
                 (villager.isBaby() ? "baby, " : "") + typeId + ", level " + villager.getVillagerData().level()
                         + ", " + villager.getExperience() + " xp, " + (int) villager.getHealth() + "/" + (int) villager.getMaxHealth() + " health");
 
-        // Vanilla professions without a file of ours are reported too.
         if (villager.isBaby()) {
             report.skipped("profession", "a baby has none, and plays until it grows up");
         } else if (profession.matchesKey(VillagerProfession.NONE)) {
@@ -173,6 +177,7 @@ final class VillagerWhy {
         } else if (profession.matchesKey(VillagerProfession.NITWIT)) {
             report.warn("profession", "nitwit  never takes a job, by vanilla's rule");
         } else {
+            // Vanilla professions without a file of ours are reported too.
             report.ok("profession", professionId + definition.map(d -> "  from " + d.name() + ".json"
                     + (d.isOverride() ? " (override)" : "")).orElse("  vanilla, no file of ours"));
             workstation(report, profession);
@@ -223,7 +228,7 @@ final class VillagerWhy {
             return;
         }
         Identifier biomeId = key.get().getValue();
-        RegistryKey<VillagerType> holder = VillagerType.BIOME_TO_TYPE.get(key.get());
+        RegistryKey<VillagerType> holder = VillagerTypeAccessor.ddv$biomeToType().get(key.get());
         String how;
         if (holder != null && holder.getValue().equals(typeId)) {
             if (d.biomes().contains(biomeId)) {
@@ -345,18 +350,18 @@ final class VillagerWhy {
         Optional<RegistryEntry<PointOfInterestType>> own = villager == null ? Optional.empty() : ownJobSite(villager);
         List<PointOfInterest> all = world.getPointOfInterestStorage()
                 .getInCircle(poi -> poi.isIn(PointOfInterestTypeTags.ACQUIRABLE_JOB_SITE), here,
-                        48, PointOfInterestStorage.OccupationStatus.ANY)
+                        STATION_RADIUS, PointOfInterestStorage.OccupationStatus.ANY)
                 .sorted(Comparator.comparingDouble(poi -> poi.getPos().getSquaredDistance(here)))
                 .toList();
         long leftOut = own.map(site -> all.stream().filter(poi -> !sameType(poi, site)).count()).orElse(0L);
         List<PointOfInterest> stations = all.stream()
                 .filter(poi -> own.map(site -> sameType(poi, site)).orElse(true))
-                .limit(8)
+                .limit(MAX_LISTED)
                 .toList();
         String others = leftOut == 0 ? "" : ", " + leftOut + " of other jobs left out";
         if (stations.isEmpty()) {
             report.extra("stations", Text.literal("no " + own.map(site -> site.getIdAsString() + " ").orElse("")
-                    + "job site block within 48 blocks" + others).formatted(Formatting.GRAY));
+                    + "job site block within " + STATION_RADIUS + " blocks" + others).formatted(Formatting.GRAY));
             return;
         }
         // Per line who holds the places; the explanation for "not accounted for" once, in the summary.
@@ -374,7 +379,7 @@ final class VillagerWhy {
                     + " blocks, " + holders.describe(station)
                     + refusal.map(r -> "  not for this villager: " + r).orElse("")));
         }
-        report.extra("stations", Text.literal(stations.size() + " within 48 blocks, " + withSpace + " with a free place"
+        report.extra("stations", Text.literal(stations.size() + " within " + STATION_RADIUS + " blocks, " + withSpace + " with a free place"
                         + others + holders.unaccountedNote())
                 .formatted(withSpace == 0 ? Formatting.YELLOW : Formatting.GRAY));
         report.notes(notes, Formatting.GREEN);
@@ -458,15 +463,17 @@ final class VillagerWhy {
                 } else if (state.get(BedBlock.OCCUPIED)) {
                     blockers.add("the bed is occupied");
                 }
-                if (!home.get().pos().isWithinDistance(villager.getPos(), 2.0)) {
-                    blockers.add("bed is " + distance(villager.getBlockPos(), home.get()) + " blocks away, has to be within 2");
+                if (!home.get().pos().isWithinDistance(villager.getPos(), BED_REACH)) {
+                    blockers.add("bed is " + distance(villager.getBlockPos(), home.get())
+                            + " blocks away, has to be within " + (int) BED_REACH);
                 }
             }
         }
         brain.getOptionalMemory(MemoryModuleType.LAST_WOKEN).ifPresent(woken -> {
             long since = world.getTime() - woken;
-            if (since < 100) {
-                blockers.add("woke " + since + " ticks ago, will not lie down again for " + (100 - since));
+            if (since < WAKE_COOLDOWN_TICKS) {
+                blockers.add("woke " + since + " ticks ago, will not lie down again for "
+                        + (WAKE_COOLDOWN_TICKS - since));
             }
         });
         if (villager.hasVehicle()) {
@@ -622,10 +629,10 @@ final class VillagerWhy {
 
     private static String ago(long now, long then) {
         long ticks = now - then;
-        if (ticks < 1200) {
+        if (ticks < TICKS_PER_MINUTE) {
             return ticks + " ticks ago";
         }
-        return String.format(Locale.ROOT, "%.1f min ago", ticks / 1200.0);
+        return String.format(Locale.ROOT, "%.1f min ago", ticks / (double) TICKS_PER_MINUTE);
     }
 
     private static String activityName(Activity activity) {

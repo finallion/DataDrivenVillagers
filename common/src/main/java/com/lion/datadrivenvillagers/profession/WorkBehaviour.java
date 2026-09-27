@@ -7,7 +7,6 @@ import java.util.Locale;
 
 /// What a villager does at work. Vanilla gates the farmer's extra routine (harvest, plant, bone
 /// meal) on `matchesKey(FARMER)` in two places; `FARM` makes a profession of ours pass those checks.
-/// Only two values because the farm and bone meal tasks are not separable in vanilla.
 public enum WorkBehaviour {
     /// Vanilla's routine for every non-farmer: go to the station, look busy, restock trades.
     STATION,

@@ -6,6 +6,8 @@ import com.google.gson.JsonParser;
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
+import com.lion.datadrivenvillagers.JsonFolder;
+import com.lion.datadrivenvillagers.LoadError;
 import com.lion.datadrivenvillagers.ReloadOutcome;
 import com.lion.datadrivenvillagers.mixin.StructurePoolAccessor;
 import com.lion.datadrivenvillagers.platform.ConfigDirectory;
@@ -28,14 +30,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /// Appends buildings from the config folder to the village template pools at runtime. A datapack can
 /// only replace a whole pool file, so two packs adding a house would overwrite each other.
@@ -133,7 +133,7 @@ public final class StructureLoader {
         for (StructureDefinition gone : before.values()) {
             outcomes.add(ReloadOutcome.updated(gone.name() + EXTENSION, "file is gone, taken back out"));
         }
-        for (StructureRegistry.LoadError error : StructureRegistry.errors()) {
+        for (LoadError error : StructureRegistry.errors()) {
             outcomes.add(ReloadOutcome.rejected(error.file(), error.reason()));
         }
         return outcomes;
@@ -232,19 +232,7 @@ public final class StructureLoader {
             return;
         }
 
-        List<Path> files;
-        try (Stream<Path> stream = Files.list(dir)) {
-            files = stream.filter(p -> p.getFileName().toString().endsWith(EXTENSION))
-                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                    .toList();
-        } catch (IOException e) {
-            DataDrivenVillagers.LOGGER.error("Could not read {}, no structures will be loaded", dir, e);
-            return;
-        }
-
-        for (Path file : files) {
-            parseOne(file, target);
-        }
+        JsonFolder.forEachFile(dir, "structures", file -> parseOne(file, target));
     }
 
     private static void parseOne(Path file, List<StructureDefinition> target) {

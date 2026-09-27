@@ -39,7 +39,6 @@ public final class ConfigFiles {
     private ConfigFiles() {
     }
 
-    /// The config directory's parent.
     private static Path gameDirectory() {
         return ConfigDirectory.getConfigDirectory().getParent().toAbsolutePath().normalize();
     }

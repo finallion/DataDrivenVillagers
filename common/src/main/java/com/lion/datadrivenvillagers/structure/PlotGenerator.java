@@ -12,7 +12,7 @@ import java.util.Map;
 
 /// Draws a roofed stall, five blocks to a side, with the workstation under the roof, in the materials
 /// of the village it stands in. Emitted as structure-block nbt so it passes through
-/// {@code StructureTemplateManager.createTemplate} and its data fixers like an author's file.
+/// `StructureTemplateManager.createTemplate` and its data fixers like an author's file.
 ///
 /// Jigsaw orientations and levels follow `plains_small_house_1.nbt` and `streets/straight_01.nbt`;
 /// a jigsaw that is off attaches to nothing and the generator does not report it.
@@ -54,7 +54,7 @@ public final class PlotGenerator {
         return plot(workstation, village, SharedConstants.getGameVersion().dataVersion().id());
     }
 
-    /// @param dataVersion the game's data version, passed in so tests need no {@code SharedConstants}
+    /// @param dataVersion the game's data version, passed in so tests need no `SharedConstants`
     static NbtCompound plot(Identifier workstation, String village, int dataVersion) {
         Materials materials = MATERIALS.getOrDefault(village, MATERIALS.get("plains"));
         Palette palette = new Palette();

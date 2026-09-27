@@ -16,8 +16,6 @@ configurations {
 }
 
 loom {
-	accessWidenerPath = project(":common").loom.accessWidenerPath
-
 	runs {
 		server {
 			runDir "run-server"

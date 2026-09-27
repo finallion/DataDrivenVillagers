@@ -38,7 +38,7 @@ final class Report {
         }
     }
 
-    /// Yellow step; does not count as broken.
+    /// Does not count as broken, unlike `broken`.
     void warn(String title, String detail) {
         step(Formatting.YELLOW, "[??] ", title, detail);
     }

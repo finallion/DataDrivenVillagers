@@ -1,6 +1,5 @@
 modLoader = "javafml"
-# NeoForge's javafml, not Forge's: it declares [3,] for itself, so [3,) accepts it and anything newer.
-# The old Forge numbering ([37,)) matches nothing here and refuses to load.
+# javafml declares [3,]; Forge's old [37,) numbering does not match it and fails to load here.
 loaderVersion = "[3,)"
 license = "GPL-3.0-only"
 
@@ -16,8 +15,7 @@ Define villager professions in JSON. Bind one to a workstation block, give it a 
 Support: https://www.patreon.com/cw/LithiumPlus
 '''
 
-# NeoForge reads mixin configs from here and nowhere else. Fabric picks them up from fabric.mod.json,
-# so without this block not a single mixin applies, silently: no job sites, no textures, no hats.
+# NeoForge reads mixin configs only from here; Fabric reads them from fabric.mod.json instead.
 [[mixins]]
 config = "datadrivenvillagers-common.mixins.json"
 
@@ -27,7 +25,6 @@ config = "datadrivenvillagers-neoforge.mixins.json"
 
 [[dependencies.datadrivenvillagers]]
 modId = "neoforge"
-# "mandatory" was replaced by "type" in the 1.20.5 loader generation.
 type = "required"
 versionRange = "[21.8.0,)"
 ordering = "NONE"
@@ -42,8 +39,7 @@ versionRange = "[1.21.8,1.21.9)"
 ordering = "NONE"
 side = "BOTH"
 
-# Professions work without it, they just have no trades. Load after it so a trade file that names one
-# of our professions finds it registered.
+# Optional: professions work without it, only without trades. Loaded after it so it sees our professions.
 [[dependencies.datadrivenvillagers]]
 modId = "villagertradingplus"
 type = "optional"

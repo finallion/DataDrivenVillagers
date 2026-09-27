@@ -31,9 +31,8 @@ import java.util.List;
 
 /// `/ddv doctor`: every `/ddv why` at once, as a text file to paste into an issue.
 ///
-/// Chat is the wrong place for a hundred lines. This writes versions, the folder, every loaded
-/// definition's report and every rejected file's reason into one file, and reports in chat only how
-/// many broke and where the file is.
+/// Writes versions, the folder, every loaded definition's report and every rejected file's reason
+/// into one file, and reports in chat only how many broke and where the file is.
 ///
 /// The file covers the config folder only; a villager standing somewhere is `/ddv why villager`'s business.
 public final class DoctorCommand {

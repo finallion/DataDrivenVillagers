@@ -15,7 +15,6 @@ import java.util.Optional;
 /// unit testable without booting Minecraft.
 public final class ProfessionParser {
 
-    /// Public for the editor's placeholders and the loader, to tell a set value from a defaulted one.
     public static final int DEFAULT_TICKET_COUNT = 1;
     public static final int DEFAULT_SEARCH_DISTANCE = 1;
 
@@ -53,7 +52,6 @@ public final class ProfessionParser {
         Optional<Identifier> workSound =
                 JsonFields.optionalString(root, "work_sound").map(JsonFields::identifier);
 
-        // Absent means vanilla's unemployed gift; a derived path would log a miss for every profession without one.
         Optional<Identifier> gift = JsonFields.optionalString(root, "gift").map(JsonFields::identifier);
 
         // Schedule and the fields below are looked up by profession id at runtime, so an override reads them too.

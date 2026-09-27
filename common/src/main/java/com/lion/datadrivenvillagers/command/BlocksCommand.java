@@ -1,5 +1,6 @@
 package com.lion.datadrivenvillagers.command;
 
+import com.lion.datadrivenvillagers.mixin.PointOfInterestTypesAccessor;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -18,7 +19,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.poi.PointOfInterestType;
-import net.minecraft.world.poi.PointOfInterestTypes;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -75,7 +75,7 @@ public final class BlocksCommand {
     private static Map<String, Set<String>> takenByPoi() {
         Map<String, Set<String>> byPoi = new TreeMap<>();
         for (Map.Entry<BlockState, RegistryEntry<PointOfInterestType>> entry
-                : PointOfInterestTypes.POI_STATES_TO_TYPE.entrySet()) {
+                : PointOfInterestTypesAccessor.ddv$poiStatesToType().entrySet()) {
             String poi = entry.getValue().getKey()
                     .map(key -> key.getValue().toString())
                     .orElse("an unnamed point of interest");
@@ -138,6 +138,6 @@ public final class BlocksCommand {
         if (block.isEmpty()) {
             return Optional.of("no such block");
         }
-        return ProfessionLoader.existingOwner(PointOfInterestTypes.getStatesOfBlock(block.get()));
+        return ProfessionLoader.existingOwner(PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get()));
     }
 }

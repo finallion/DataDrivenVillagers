@@ -119,7 +119,6 @@ public final class LookSync {
         if (file.isEmpty()) {
             return Optional.empty();
         }
-        // The parser holds the name to a plain file name; this is the second lock on the same door.
         Optional<Path> inside = ConfigFiles.resolveInside(folder, file.get());
         if (inside.isEmpty()) {
             DataDrivenVillagers.LOGGER.warn("{} names \"{}\", which is not a file inside {}; not sent",

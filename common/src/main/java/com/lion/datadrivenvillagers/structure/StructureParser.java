@@ -34,7 +34,6 @@ public final class StructureParser {
     public static StructureDefinition parse(String fileName, JsonObject root) {
         String path = JsonFields.idPathFromFileName(fileName);
 
-        // Exactly one of "structure" and "workstation" per file.
         Optional<String> file = JsonFields.optionalString(root, "structure");
         Optional<Identifier> workstation =
                 JsonFields.optionalString(root, "workstation").map(JsonFields::identifier);
@@ -47,7 +46,6 @@ public final class StructureParser {
                     + "\"workstation\" a block to build a plot around");
         }
         if (file.isPresent() && !file.get().endsWith(EXTENSION)) {
-            // Rejected rather than fixed: a name without the extension is probably a datapack id.
             throw new DefinitionParseException("\"structure\" must be a file name ending in " + EXTENSION
                     + ", the nbt sits beside the json rather than in a datapack");
         }
@@ -63,7 +61,6 @@ public final class StructureParser {
         List<String> villages = JsonFields.strings(root, "villages");
         String pool = JsonFields.optionalString(root, "pool").orElse(DEFAULT_POOL);
 
-        // "pools" and the "villages"/"pool" shorthand are exclusive.
         if (!pools.isEmpty() && (!villages.isEmpty() || root.has("pool"))) {
             throw new DefinitionParseException("\"pools\" names the pools outright and cannot be used "
                     + "with \"villages\" or \"pool\", which are the shorthand for the same thing");

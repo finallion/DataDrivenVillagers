@@ -7,8 +7,8 @@ import net.minecraft.world.poi.PointOfInterestType;
 /// `WorkStationCompetitionTask` (takes the job from the less experienced of two villagers on one
 /// block) and `TakeJobSiteTask` (hands a spotted block to a neighbour already working there) assume
 /// one worker per block. Every vanilla job site has `ticketCount = 1`, so vanilla never hits this.
-/// Both tasks are skipped on a shared station of ours; nothing is released. Do not release the
-/// competition loser's ticket: it never held one, and releasing frees the winner's place.
+/// Both tasks are skipped on a shared station of ours; nothing is released. The competition loser
+/// holds no ticket, so releasing one would free the winner's place instead.
 public final class JobSiteTickets {
 
     private JobSiteTickets() {

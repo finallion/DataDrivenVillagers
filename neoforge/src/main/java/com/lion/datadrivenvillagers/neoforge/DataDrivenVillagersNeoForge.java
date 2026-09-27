@@ -34,7 +34,8 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 @Mod(DataDrivenVillagers.MOD_ID)
 public class DataDrivenVillagersNeoForge {
 
-    /// NeoForge fires the villager profession RegisterEvent before the point of interest one.
+    private static final String NETWORK_PROTOCOL_VERSION = "1";
+
     public DataDrivenVillagersNeoForge(IEventBus modEventBus) {
         modEventBus.addListener(DataDrivenVillagersNeoForge::onRegister);
         modEventBus.addListener(DataDrivenVillagersNeoForge::onRegisterPayloads);
@@ -67,6 +68,7 @@ public class DataDrivenVillagersNeoForge {
         }
     }
 
+    /// NeoForge fires the villager profession RegisterEvent before the point of interest one.
     private static void onRegister(RegisterEvent event) {
         if (RegistryKeys.POINT_OF_INTEREST_TYPE.equals(event.getRegistryKey())) {
             ProfessionLoader.registerPointsOfInterest();
@@ -79,7 +81,7 @@ public class DataDrivenVillagersNeoForge {
 
     /// Loaded on the dedicated server: handlers reference only `SyncedLooks` and `EditorBridge`, never a screen.
     private static void onRegisterPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1");
+        PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);
         registrar.playToClient(LooksBeginPayload.ID, LooksBeginPayload.CODEC,
                 (payload, context) -> SyncedLooks.begin(payload));
         registrar.playToClient(LookPayload.ID, LookPayload.CODEC,
@@ -110,6 +112,6 @@ public class DataDrivenVillagersNeoForge {
     }
 
     private static void onRegisterCommands(RegisterCommandsEvent event) {
-        DataDrivenVillagersCommand.register(event.getDispatcher(), event.getBuildContext());
+        DataDrivenVillagersCommand.register(event.getDispatcher());
     }
 }

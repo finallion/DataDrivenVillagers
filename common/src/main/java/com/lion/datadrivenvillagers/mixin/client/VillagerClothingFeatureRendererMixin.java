@@ -34,9 +34,9 @@ import java.util.Optional;
 public abstract class VillagerClothingFeatureRendererMixin {
 
     @Unique
-    private static final String PROFESSION = "profession";
+    private static final String DATADRIVENVILLAGERS$PROFESSION = "profession";
     @Unique
-    private static final String TYPE = "type";
+    private static final String DATADRIVENVILLAGERS$TYPE = "type";
 
     /// "villager" or "zombie_villager", set at construction.
     @Shadow
@@ -49,14 +49,14 @@ public abstract class VillagerClothingFeatureRendererMixin {
     private void datadrivenvillagers$overrideTexture(String layer, Identifier id,
                                                      CallbackInfoReturnable<Identifier> cir) {
         Optional<Identifier> served;
-        if (PROFESSION.equals(layer)) {
+        if (DATADRIVENVILLAGERS$PROFESSION.equals(layer)) {
             Optional<SyncedLooks.Look> look = SyncedLooks.profession(id);
             served = datadrivenvillagers$synced(look)
                     .or(() -> datadrivenvillagers$folderMayAnswer(look)
                             ? ProfessionRegistry.get(id).flatMap(definition ->
                                     datadrivenvillagers$local(definition, ProfessionLoader.directory()))
                             : Optional.empty());
-        } else if (TYPE.equals(layer)) {
+        } else if (DATADRIVENVILLAGERS$TYPE.equals(layer)) {
             Optional<SyncedLooks.Look> look = SyncedLooks.type(id);
             served = datadrivenvillagers$synced(look)
                     .or(() -> datadrivenvillagers$folderMayAnswer(look)
@@ -101,7 +101,7 @@ public abstract class VillagerClothingFeatureRendererMixin {
     private <K> void datadrivenvillagers$overrideHat(Object2ObjectMap<RegistryKey<K>, VillagerResourceMetadata.HatType> map,
                                                      String type, RegistryEntry<K> entry,
                                                      CallbackInfoReturnable<VillagerResourceMetadata.HatType> cir) {
-        if (!PROFESSION.equals(type)) {
+        if (!DATADRIVENVILLAGERS$PROFESSION.equals(type)) {
             return;
         }
         Optional<RegistryKey<K>> key = entry.getKey();
@@ -113,12 +113,12 @@ public abstract class VillagerClothingFeatureRendererMixin {
         if (hat.isEmpty() && !SyncedLooks.active()) {
             hat = ProfessionRegistry.get(id).map(definition -> definition.hat());
         }
-        hat.map(VillagerClothingFeatureRendererMixin::toHatType).ifPresent(cir::setReturnValue);
+        hat.map(VillagerClothingFeatureRendererMixin::datadrivenvillagers$toHatType).ifPresent(cir::setReturnValue);
     }
 
     /// No switch here: a switch on an enum compiles to a synthetic class that Mixin cannot load in production.
     @Unique
-    private static VillagerResourceMetadata.HatType toHatType(HatKind kind) {
+    private static VillagerResourceMetadata.HatType datadrivenvillagers$toHatType(HatKind kind) {
         return VillagerResourceMetadata.HatType.valueOf(kind.name());
     }
 }

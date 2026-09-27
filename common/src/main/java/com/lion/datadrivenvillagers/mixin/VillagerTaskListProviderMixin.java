@@ -30,6 +30,8 @@ import java.util.Optional;
 @Mixin(VillagerTaskListProvider.class)
 public abstract class VillagerTaskListProviderMixin {
 
+    private static final int ATTACK_TASK_PRIORITY = 10;
+
     @ModifyExpressionValue(method = "createWorkTasks",
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/registry/entry/RegistryEntry;matchesKey(Lnet/minecraft/registry/RegistryKey;)Z"))
@@ -46,10 +48,10 @@ public abstract class VillagerTaskListProviderMixin {
         Optional<Attack> attack = ProfessionBehaviours.of(profession).flatMap(ProfessionDefinition::attack);
         return attack.map(value -> ImmutableList.<Pair<Integer, ? extends Task<? super VillagerEntity>>>builder()
                 .addAll(original)
-                .add(Pair.of(10, UpdateAttackTargetTask.create((world, villager) -> ProfessionBehaviours.target(villager))))
-                .add(Pair.of(10, ForgetAttackTargetTask.create()))
-                .add(Pair.of(10, RangedApproachTask.create(speed)))
-                .add(Pair.of(10, MeleeAttackTask.create(value.cooldown())))
+                .add(Pair.of(ATTACK_TASK_PRIORITY, UpdateAttackTargetTask.create((world, villager) -> ProfessionBehaviours.target(villager))))
+                .add(Pair.of(ATTACK_TASK_PRIORITY, ForgetAttackTargetTask.create()))
+                .add(Pair.of(ATTACK_TASK_PRIORITY, RangedApproachTask.create(speed)))
+                .add(Pair.of(ATTACK_TASK_PRIORITY, MeleeAttackTask.create(value.cooldown())))
                 .build()).orElse(original);
     }
 }

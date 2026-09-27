@@ -11,7 +11,3 @@ test {
 architectury {
 	common(rootProject.enabled_platforms.split(","))
 }
-
-loom {
-	accessWidenerPath = file("src/main/resources/datadrivenvillagers.accesswidener")
-}

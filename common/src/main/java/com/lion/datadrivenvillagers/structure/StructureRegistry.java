@@ -1,6 +1,8 @@
 package com.lion.datadrivenvillagers.structure;
 
 import com.lion.datadrivenvillagers.CopyOnWrite;
+import com.lion.datadrivenvillagers.LoadError;
+import com.lion.datadrivenvillagers.LoadErrors;
 
 import net.minecraft.util.Identifier;
 
@@ -16,14 +18,9 @@ import java.util.Optional;
 public final class StructureRegistry {
 
     private static volatile Map<Identifier, StructureDefinition> definitions = Collections.emptyMap();
-    private static volatile List<LoadError> errors = Collections.emptyList();
+    private static final LoadErrors errors = new LoadErrors();
 
     private StructureRegistry() {
-    }
-
-    /// @param file   file name the failure came from
-    /// @param reason phrased for a pack author
-    public record LoadError(String file, String reason) {
     }
 
     public static void add(StructureDefinition definition) {
@@ -61,15 +58,15 @@ public final class StructureRegistry {
     }
 
     public static void addError(String file, String reason) {
-        errors = CopyOnWrite.plus(errors, new LoadError(file, reason));
+        errors.add(file, reason);
     }
 
     public static void clearErrors() {
-        errors = Collections.emptyList();
+        errors.clear();
     }
 
     public static List<LoadError> errors() {
-        return errors;
+        return errors.list();
     }
 
     public static boolean isEmpty() {

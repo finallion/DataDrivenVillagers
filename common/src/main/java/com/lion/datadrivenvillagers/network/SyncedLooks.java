@@ -73,7 +73,6 @@ public final class SyncedLooks {
     /// Ignores a target this client has no such profession or type for, and stops past the announced count.
     public static void accept(LookPayload payload) {
         if (!active) {
-            // A look without a begin packet is taken anyway.
             active = true;
             generation++;
         }
@@ -128,9 +127,5 @@ public final class SyncedLooks {
 
     public static int received() {
         return PROFESSIONS.size() + TYPES.size();
-    }
-
-    public static int expected() {
-        return expected;
     }
 }

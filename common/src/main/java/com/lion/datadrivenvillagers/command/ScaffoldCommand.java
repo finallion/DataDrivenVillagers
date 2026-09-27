@@ -103,7 +103,7 @@ public final class ScaffoldCommand {
 
         written += building(source, definition, folder);
 
-        // The readme is always rewritten; it is not meant to be edited.
+        // The readme is rewritten every run.
         if (!write(source, folder.resolve(README), readme(definition))) {
             return written;
         }
