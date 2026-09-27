@@ -216,7 +216,7 @@ public final class WhyCommand {
                 continue;
             }
 
-            String owner = ownerOf(block.get(), poi);
+            String owner = ownerOf(block.get(), poi, definition.allowNaturalBlock());
             if (owner == null) {
                 leading++;
                 notes.add(new Note(true, blockId + "  "
@@ -237,7 +237,7 @@ public final class WhyCommand {
     }
 
     /// @return null when every state of the block leads to this job site, otherwise who holds it
-    private static String ownerOf(Block block, RegistryEntry<PointOfInterestType> poi) {
+    private static String ownerOf(Block block, RegistryEntry<PointOfInterestType> poi, boolean allowNaturalBlock) {
         Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block);
         if (states.isEmpty()) {
             return "block has no states";
@@ -246,6 +246,9 @@ public final class WhyCommand {
         for (BlockState state : states) {
             RegistryEntry<PointOfInterestType> holder = JobSiteStates.get(state);
             if (holder == null) {
+                if (!allowNaturalBlock && ProfessionLoader.isNaturalBlock(Registries.BLOCK.getId(block))) {
+                    return "generates naturally, needs \"allow_natural_block\": true";
+                }
                 return "not a job site block";
             }
             if (holder.value() != poi.value()) {

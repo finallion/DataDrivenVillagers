@@ -59,7 +59,8 @@ public final class BlocksCommand {
 
         int blocks = byPoi.values().stream().mapToInt(Set::size).sum();
         source.sendFeedback(() -> Text.literal(blocks + " block(s) already belong to "
-                        + byPoi.size() + " point(s) of interest. Any block not listed here is free.")
+                        + byPoi.size() + " point(s) of interest. Blocks that generate naturally are not listed and need "
+                        + "\"allow_natural_block\": true.")
                 .formatted(Formatting.WHITE), false);
 
         for (Map.Entry<String, Set<String>> entry : byPoi.entrySet()) {
@@ -111,13 +112,15 @@ public final class BlocksCommand {
         int free = 0;
         for (Identifier id : matches.subList(0, Math.min(matches.size(), MAX_LINES))) {
             Optional<String> owner = ownerOf(id);
-            if (owner.isEmpty()) {
+            boolean natural = owner.isEmpty() && ProfessionLoader.isNaturalBlock(id);
+            if (owner.isEmpty() && !natural) {
                 free++;
             }
-            source.sendFeedback(() -> Text.literal(id.toString())
-                    .formatted(owner.isEmpty() ? Formatting.GREEN : Formatting.RED)
-                    .append(Text.literal(owner.map(who -> "  taken by " + who).orElse("  free"))
-                            .formatted(Formatting.GRAY)), false);
+            Formatting colour = owner.isPresent() ? Formatting.RED : natural ? Formatting.YELLOW : Formatting.GREEN;
+            String suffix = owner.map(who -> "  taken by " + who)
+                    .orElse(natural ? "  generates naturally, needs \"allow_natural_block\": true" : "  free");
+            source.sendFeedback(() -> Text.literal(id.toString()).formatted(colour)
+                    .append(Text.literal(suffix).formatted(Formatting.GRAY)), false);
         }
 
         if (matches.size() > MAX_LINES) {
@@ -131,7 +134,6 @@ public final class BlocksCommand {
         return free;
     }
 
-    /// Uses the loader's rule that one taken state makes a block unusable, so this never recommends a rejected block.
     private static Optional<String> ownerOf(Identifier id) {
         Optional<Block> block = Registries.BLOCK.getOrEmpty(id);
         if (block.isEmpty()) {

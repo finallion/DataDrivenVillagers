@@ -16,6 +16,7 @@ public record ProfessionDefinition(
         Optional<Identifier> overrides,
         List<Identifier> workstations,
         List<Identifier> addWorkstations,
+        boolean allowNaturalBlock,
         Optional<String> displayName,
         Optional<Identifier> texture,
         Optional<String> textureFile,

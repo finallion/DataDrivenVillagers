@@ -7,6 +7,7 @@ import com.lion.datadrivenvillagers.DefinitionParseException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -191,6 +192,31 @@ class ProfessionParserTest {
                 { "overrides": "minecraft:farmer", "add_workstations": ["minecraft:hay_block"] }
                 """);
         assertEquals(1, definition.addWorkstations().size());
+    }
+
+    @Test
+    void allowNaturalBlockDefaultsToFalse() {
+        assertFalse(parse("x", """
+                { "workstation": "minecraft:smoker" }
+                """).allowNaturalBlock());
+    }
+
+    @Test
+    void allowNaturalBlockCanBeSetOnANewProfessionOrAnOverride() {
+        assertTrue(parse("x", """
+                { "workstation": "minecraft:calcite", "allow_natural_block": true }
+                """).allowNaturalBlock());
+        assertTrue(parse("x", """
+                { "overrides": "minecraft:farmer", "add_workstations": "minecraft:calcite", "allow_natural_block": true }
+                """).allowNaturalBlock());
+    }
+
+    @Test
+    void allowNaturalBlockRejectsANonBooleanValue() {
+        DefinitionParseException e = assertThrows(DefinitionParseException.class, () -> parse("x", """
+                { "workstation": "minecraft:smoker", "allow_natural_block": "yes" }
+                """));
+        assertTrue(e.getMessage().contains("allow_natural_block"), e.getMessage());
     }
 
     /// The shipped example is the first thing every user sees, so it must parse and name a texture.

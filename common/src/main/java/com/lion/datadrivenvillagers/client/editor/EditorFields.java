@@ -226,13 +226,12 @@ public final class EditorFields {
         };
     }
 
-    /// Every block no job site has claimed yet, the same set `/ddv blocks` answers, computed while the author types.
     private static List<Identifier> freeBlocks() {
         if (freeBlocks == null) {
             List<Identifier> free = new ArrayList<>();
             for (Identifier id : Registries.BLOCK.getIds()) {
                 Block block = Registries.BLOCK.getOrEmpty(id).orElse(null);
-                if (block != null && ProfessionLoader.existingOwner(
+                if (block != null && !ProfessionLoader.isNaturalBlock(id) && ProfessionLoader.existingOwner(
                         PointOfInterestTypes.getStatesOfBlock(block)).isEmpty()) {
                     free.add(id);
                 }
