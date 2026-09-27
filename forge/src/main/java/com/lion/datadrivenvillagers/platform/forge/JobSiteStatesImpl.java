@@ -15,21 +15,21 @@ import java.util.Map;
 public class JobSiteStatesImpl {
 
     public static RegistryEntry<PointOfInterestType> get(BlockState state) {
-        return entry(PointOfInterestTypesAccessor.ddv$poiStatesToType().get(state));
+        return entry(PointOfInterestTypesAccessor.ddv$forgePoiStatesToType().get(state));
     }
 
     public static void put(BlockState state, RegistryEntry<PointOfInterestType> jobSite) {
-        PointOfInterestTypesAccessor.ddv$poiStatesToType().put(state, jobSite.value());
+        PointOfInterestTypesAccessor.ddv$forgePoiStatesToType().put(state, jobSite.value());
     }
 
     public static void remove(BlockState state) {
-        PointOfInterestTypesAccessor.ddv$poiStatesToType().remove(state);
+        PointOfInterestTypesAccessor.ddv$forgePoiStatesToType().remove(state);
     }
 
     public static Map<BlockState, RegistryEntry<PointOfInterestType>> all() {
         Map<BlockState, RegistryEntry<PointOfInterestType>> states = new LinkedHashMap<>();
         for (Map.Entry<BlockState, PointOfInterestType> claimed
-                : PointOfInterestTypesAccessor.ddv$poiStatesToType().entrySet()) {
+                : PointOfInterestTypesAccessor.ddv$forgePoiStatesToType().entrySet()) {
             RegistryEntry<PointOfInterestType> entry = entry(claimed.getValue());
             if (entry != null) {
                 states.put(claimed.getKey(), entry);

@@ -14,7 +14,7 @@ import java.util.Map;
 public interface PointOfInterestTypesAccessor {
 
     @Accessor("POI_STATES_TO_TYPE")
-    static Map<BlockState, PointOfInterestType> ddv$poiStatesToType() {
+    static Map<BlockState, PointOfInterestType> ddv$forgePoiStatesToType() {
         throw new AssertionError();
     }
 }

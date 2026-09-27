@@ -15,8 +15,10 @@ public final class EditorRowList extends ElementListWidget<EditorRowList.Row> {
     private final int rowGutter;
 
     public EditorRowList(MinecraftClient client, int width, int top, int bottom, int itemHeight, int rowGutter) {
-        super(client, width, bottom - top, top, bottom, itemHeight);
+        super(client, width, client.getWindow().getScaledHeight(), top, bottom, itemHeight);
         this.rowGutter = rowGutter;
+        setRenderBackground(false);
+        setRenderHorizontalShadows(false);
     }
 
     /// Leaves room on the right for the scrollbar vanilla draws for this list.
