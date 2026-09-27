@@ -31,6 +31,7 @@ public final class ProfessionParser {
         // "workstation" creates a job site, "add_workstations" extends an existing one; never both.
         List<Identifier> workstations = JsonFields.identifiers(root, "workstation", !overrides.isPresent());
         List<Identifier> addWorkstations = JsonFields.identifiers(root, "add_workstations", false);
+        boolean allowNaturalBlock = JsonFields.optionalBoolean(root, "allow_natural_block", false);
 
         if (overrides.isPresent() && !workstations.isEmpty()) {
             throw new DefinitionParseException(
@@ -92,6 +93,7 @@ public final class ProfessionParser {
                 overrides,
                 workstations,
                 addWorkstations,
+                allowNaturalBlock,
                 displayName,
                 texture.identifier(),
                 texture.file(),

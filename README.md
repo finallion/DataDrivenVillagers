@@ -72,6 +72,7 @@ and hats are sent to each player on join, so only missing files cause problems, 
 | `villages` | villager types allowed to take the job, e.g. `["desert"]`. Leave it out for all |
 | `ticket_count` | how many villagers work at one station at the same time, default 1 |
 | `search_distance` | how far a villager looks for the station, default 1 |
+| `allow_natural_block` | `true` accepts a block world generation places in bulk as a workstation anyway, default `false` |
 
 Any block can be a workstation, including blocks from other mods, **if it is not already a job
 site**. Minecraft allows one point of interest per block state, so the thirteen vanilla workstation
@@ -83,6 +84,11 @@ warning and uses the rest.
 
 Air, fluids and blocks without collision (flowers, torches, rails) cannot be a workstation. They are
 everywhere in a world, and every one of them would become a point of interest.
+
+The same holds for blocks that world generation places in bulk: stone and the other base stones, ores,
+dirt, sand, logs, leaves, terracotta, geode blocks and a few more. Every natural one would become a
+job site, and the log fills with `POI data mismatch: never registered`. Set `"allow_natural_block": true` on
+the profession or override to use one of these blocks anyway.
 
 ## Textures
 
@@ -343,8 +349,8 @@ before. The profession stays in the game.
 
 Some changes need a restart, because professions, job sites and villager types are registries that
 Minecraft freezes before a world loads: adding or removing a file, and changing `display_name`,
-`work_sound`, `gatherable_items`, `secondary_job_sites`, `ticket_count` or `search_distance`. The
-report names these per file.
+`work_sound`, `gatherable_items`, `secondary_job_sites`, `ticket_count` or `search_distance`, and
+`allow_natural_block` on a new profession. The report names these per file.
 
 On a server, every connected player receives the new hats and images after the reload. The report
 shows how many players received them.
