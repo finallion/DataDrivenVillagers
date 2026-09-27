@@ -3,8 +3,7 @@ package com.lion.datadrivenvillagers;
 import java.util.Collections;
 import java.util.List;
 
-/// One registry's rejected-file list, shared by the profession, type and structure registries.
-/// Swapped whole on every write, see {@link CopyOnWrite}.
+/// Swapped whole on every write, so readers on other threads always see a complete list.
 public final class LoadErrors {
 
     private volatile List<LoadError> errors = Collections.emptyList();
@@ -17,7 +16,6 @@ public final class LoadErrors {
         errors = Collections.emptyList();
     }
 
-    /// Drops the rejection of one file, so `/ddv errors` stops naming it.
     public void remove(String file) {
         errors = CopyOnWrite.minus(errors, error -> error.file().equals(file));
     }
