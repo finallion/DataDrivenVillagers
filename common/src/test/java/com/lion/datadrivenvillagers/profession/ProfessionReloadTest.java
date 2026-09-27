@@ -111,4 +111,11 @@ class ProfessionReloadTest {
         assertTrue(ProfessionLoader.isNaturalBlock(Identifier.ofVanilla("stone")));
         assertFalse(ProfessionLoader.isNaturalBlock(Identifier.ofVanilla("crafting_table")));
     }
+
+    @Test
+    void isStructureBulkBlockMatchesTheFixedList() {
+        assertTrue(ProfessionLoader.isStructureBulkBlock(Identifier.ofVanilla("cobblestone")));
+        assertTrue(ProfessionLoader.isStructureBulkBlock(Identifier.ofVanilla("stone_bricks")));
+        assertFalse(ProfessionLoader.isStructureBulkBlock(Identifier.ofVanilla("crafting_table")));
+    }
 }

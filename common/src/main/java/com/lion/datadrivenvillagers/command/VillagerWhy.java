@@ -359,7 +359,7 @@ final class VillagerWhy {
                     + "job site block within 48 blocks" + others).formatted(Formatting.GRAY));
             return;
         }
-        // Per line who holds the places; the explanation for "held by nobody" once, in the summary.
+        // Per line who holds the places; the explanation for "not accounted for" once, in the summary.
         Holders holders = Holders.around(world, here);
         List<Note> notes = new ArrayList<>();
         int withSpace = 0;
@@ -375,7 +375,7 @@ final class VillagerWhy {
                     + refusal.map(r -> "  not for this villager: " + r).orElse("")));
         }
         report.extra("stations", Text.literal(stations.size() + " within 48 blocks, " + withSpace + " with a free place"
-                        + others + holders.nobodyNote())
+                        + others + holders.unaccountedNote())
                 .formatted(withSpace == 0 ? Formatting.YELLOW : Formatting.GRAY));
         report.notes(notes, Formatting.GREEN);
     }

@@ -1,6 +1,7 @@
 package com.lion.datadrivenvillagers.type;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
@@ -252,6 +253,22 @@ public final class TypeLoader {
         claims.named.clear();
     }
 
+    /// Server start and stop hook of both loaders: a tag claim from a past world must not survive into the next one.
+    public static void releaseTagClaims() {
+        Claims claims = Claims.ofCurrent();
+        for (Map.Entry<RegistryKey<Biome>, VillagerType> claim : new HashMap<>(claims.own).entrySet()) {
+            RegistryKey<Biome> biome = claim.getKey();
+            if (claims.named.containsKey(biome) || claims.biomeToType.get(biome) != claim.getValue()) {
+                continue;
+            }
+            DISPLACED.getOrDefault(biome, Optional.empty()).ifPresentOrElse(
+                    before -> claims.biomeToType.put(biome, before), () -> claims.biomeToType.remove(biome));
+            claims.own.remove(biome);
+            claims.changed = true;
+        }
+        claims.publish();
+    }
+
     /// Tag hook of both loaders; publishes only when a tag filled a free biome.
     public static void claimTags(RegistryWrapper<Biome> biomes) {
         Claims claims = Claims.ofCurrent();
@@ -323,6 +340,10 @@ public final class TypeLoader {
         String safeName = DefinitionParseException.sanitize(fileName);
         String reason = DefinitionParseException.readableReason(e);
         TypeRegistry.addError(safeName, reason);
-        DataDrivenVillagers.LOGGER.error("Skipping villager type file {}: {}", safeName, reason);
+        if (e instanceof DefinitionParseException || e instanceof JsonParseException) {
+            DataDrivenVillagers.LOGGER.error("Skipping villager type file {}: {}", safeName, reason);
+        } else {
+            DataDrivenVillagers.LOGGER.error("Skipping villager type file {}: {}", safeName, reason, e);
+        }
     }
 }

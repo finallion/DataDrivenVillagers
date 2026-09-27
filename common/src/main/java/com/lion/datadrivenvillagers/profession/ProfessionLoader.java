@@ -2,11 +2,13 @@ package com.lion.datadrivenvillagers.profession;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.ReloadOutcome;
 import com.lion.datadrivenvillagers.platform.ConfigDirectory;
+import com.lion.datadrivenvillagers.platform.PlatformInfo;
 import com.lion.datadrivenvillagers.platform.RegistryHelper;
 
 import net.minecraft.block.Block;
@@ -60,6 +62,12 @@ public final class ProfessionLoader {
     private static final List<ProfessionDefinition> PARSED = new ArrayList<>();
     private static final Map<Identifier, PointOfInterestType> POINTS_OF_INTEREST = new LinkedHashMap<>();
     private static final Set<Identifier> POI_FAILED = new LinkedHashSet<>();
+
+    /// Override files rejected only because their target profession did not exist yet; retried at server start.
+    private static final Set<String> AWAITING_TARGET = new LinkedHashSet<>();
+
+    /// Blocks already reported as an accepted natural-block workstation this load; every caller shares one log line.
+    private static final Set<Identifier> LOGGED_ALLOWED_ANYWAY = new LinkedHashSet<>();
 
     private ProfessionLoader() {
     }
@@ -180,12 +188,24 @@ public final class ProfessionLoader {
     private static void applyOverrides() {
         for (ProfessionDefinition definition : PARSED) {
             if (definition.isOverride()) {
+                String file = definition.name() + EXTENSION;
                 try {
                     applyOverride(definition);
+                    AWAITING_TARGET.remove(file);
                 } catch (Exception e) {
-                    reject(definition.name() + EXTENSION, e);
+                    trackIfAwaitingTarget(definition, file);
+                    reject(file, e);
                 }
             }
+        }
+    }
+
+    /// Only a missing target profession is worth a retry; every other rejection reason stays as it is.
+    private static void trackIfAwaitingTarget(ProfessionDefinition definition, String file) {
+        if (Registries.VILLAGER_PROFESSION.getOptionalValue(definition.target()).isEmpty()) {
+            AWAITING_TARGET.add(file);
+        } else {
+            AWAITING_TARGET.remove(file);
         }
     }
 
@@ -246,6 +266,7 @@ public final class ProfessionLoader {
     /// Rereads every file; fields baked into vanilla's frozen record need a restart to apply.
     public static List<ReloadOutcome> reload(MinecraftServer server) {
         ProfessionRegistry.clearErrors();
+        LOGGED_ALLOWED_ANYWAY.clear();
         List<ProfessionDefinition> fresh = new ArrayList<>();
         parseInto(fresh);
 
@@ -306,6 +327,15 @@ public final class ProfessionLoader {
 
         PARSED.clear();
         PARSED.addAll(fresh);
+
+        // A file no longer on disk cannot be retried, so it must not linger in the tracking set.
+        Set<String> freshOverrideFiles = new LinkedHashSet<>();
+        for (ProfessionDefinition definition : fresh) {
+            if (definition.isOverride()) {
+                freshOverrideFiles.add(definition.name() + EXTENSION);
+            }
+        }
+        AWAITING_TARGET.retainAll(freshOverrideFiles);
 
         DataDrivenVillagers.newGeneration();
 
@@ -371,8 +401,10 @@ public final class ProfessionLoader {
     private static boolean applyNewOverride(String file, ProfessionDefinition definition) {
         try {
             applyOverride(definition);
+            AWAITING_TARGET.remove(file);
             return true;
         } catch (Exception e) {
+            trackIfAwaitingTarget(definition, file);
             reject(file, e);
             return false;
         }
@@ -383,10 +415,6 @@ public final class ProfessionLoader {
         said.add("new override of " + definition.target() + ", applied");
         if (!definition.addWorkstations().isEmpty()) {
             said.add(definition.addWorkstations().size() + " block(s) offered to its job site");
-        }
-        List<String> ignored = ignoredFields(definition);
-        if (!ignored.isEmpty()) {
-            said.add("an override never reads " + String.join(", ", ignored));
         }
         return String.join(", ", said);
     }
@@ -455,11 +483,6 @@ public final class ProfessionLoader {
         }
 
         ProfessionRegistry.replace(next);
-
-        List<String> ignored = ignoredFields(next);
-        if (!ignored.isEmpty()) {
-            applied.add("an override never reads " + String.join(", ", ignored));
-        }
 
         List<String> frozen = frozenFields(old, next);
         if (frozen.isEmpty()) {
@@ -635,7 +658,6 @@ public final class ProfessionLoader {
         }
 
         ProfessionRegistry.add(definition, jobSite);
-        warnIfIgnored(definition);
     }
 
     /// Runs at server start. Restores POI states a registry refresh dropped, then retries rejected overrides.
@@ -660,19 +682,22 @@ public final class ProfessionLoader {
     public static List<String> naturalBlockWarnings() {
         List<String> warnings = new ArrayList<>();
         for (ProfessionDefinition definition : ProfessionRegistry.ordered()) {
-            if (definition.allowNaturalBlock()) {
-                continue;
-            }
             List<Identifier> blockIds = definition.isOverride()
                     ? definition.addWorkstations()
                     : definition.workstations();
             for (Identifier blockId : blockIds) {
                 Optional<Block> block = Registries.BLOCK.getOptionalValue(blockId);
-                // Vanilla blocks are covered by the fixed list; the tags only catch blocks of other mods.
-                if (block.isEmpty() || blockId.getNamespace().equals("minecraft")) {
+                if (block.isEmpty()) {
                     continue;
                 }
-                if (generatesInBulk(block.get().getDefaultState())) {
+                if (StructureBulkBlocks.IDS.contains(blockId)) {
+                    warnings.add(definition.target() + " claims " + blockId + ", which generated structures "
+                            + "place in bulk; point of interest data and search cost grow with the explored world");
+                    continue;
+                }
+                // The fixed lists cover vanilla; the tags only catch bulk-placed blocks of other mods.
+                if (!definition.allowNaturalBlock() && !blockId.getNamespace().equals("minecraft")
+                        && generatesInBulk(block.get().getDefaultState())) {
                     warnings.add(definition.target() + " claims " + blockId + ", which world generation "
                             + "likely places in bulk; set \"allow_natural_block\": true if that is intended");
                 }
@@ -722,76 +747,38 @@ public final class ProfessionLoader {
         }
     }
 
-    /// Retries only overrides whose current rejection names a missing target profession.
+    /// Retries only overrides tracked as waiting for a target profession that did not exist yet.
     private static void retryRejectedOverrides() {
         for (ProfessionDefinition definition : PARSED) {
-            if (!definition.isOverride() || ProfessionRegistry.get(definition.target())
-                    .filter(held -> held.name().equals(definition.name())).isPresent()) {
+            String file = definition.name() + EXTENSION;
+            if (!definition.isOverride() || !AWAITING_TARGET.contains(file)) {
                 continue;
             }
-            String file = definition.name() + EXTENSION;
-            if (!rejectedForMissingTarget(definition.target(), file)) {
+            if (ProfessionRegistry.get(definition.target())
+                    .filter(held -> held.name().equals(definition.name())).isPresent()) {
+                AWAITING_TARGET.remove(file);
                 continue;
             }
             try {
                 applyOverride(definition);
+                AWAITING_TARGET.remove(file);
                 ProfessionRegistry.removeError(file);
                 DataDrivenVillagers.LOGGER.info(
                         "Override {} applied once the server started, its target profession exists now",
                         definition.target());
             } catch (Exception e) {
+                trackIfAwaitingTarget(definition, file);
                 ProfessionRegistry.removeError(file);
                 reject(file, e);
             }
         }
     }
 
-    /// True only when the stored error for this file is exactly the "target missing" rejection.
-    private static boolean rejectedForMissingTarget(Identifier target, String file) {
-        String expected = DefinitionParseException.readableReason(
-                new DefinitionParseException(targetMissingReason(target)));
-        for (ProfessionRegistry.LoadError error : ProfessionRegistry.errors()) {
-            if (error.file().equals(file) && error.reason().equals(expected)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// Shared with the throw site in {@link #applyOverride}, so a stored error can be matched back to it.
     private static String targetMissingReason(Identifier target) {
         return "\"overrides\" names " + target + ", which is not a registered profession";
     }
 
-    /// Fields only read while creating a profession or job site, which an override never does.
-    public static List<String> ignoredFields(ProfessionDefinition definition) {
-        if (!definition.isOverride()) {
-            return List.of();
-        }
-
-        List<String> ignored = new ArrayList<>();
-        if (definition.displayName().isPresent()) {
-            ignored.add("display_name");
-        }
-        if (definition.workSound().isPresent()) {
-            ignored.add("work_sound");
-        }
-        if (!definition.gatherable().isEmpty()) {
-            ignored.add("gatherable_items");
-        }
-        if (!definition.secondarySites().isEmpty()) {
-            ignored.add("secondary_job_sites");
-        }
-        if (definition.ticketCount() != ProfessionParser.DEFAULT_TICKET_COUNT) {
-            ignored.add("ticket_count");
-        }
-        if (definition.searchDistance() != ProfessionParser.DEFAULT_SEARCH_DISTANCE) {
-            ignored.add("search_distance");
-        }
-        return ignored;
-    }
-
-    /// Fields an override reads, asked per villager; with {@link #ignoredFields} every field is in exactly one list.
+    /// Fields an override reads, asked per villager.
     public static List<String> behaviourFields(ProfessionDefinition definition) {
         List<String> applied = new ArrayList<>();
         if (definition.schedule().isPresent()) {
@@ -813,16 +800,6 @@ public final class ProfessionLoader {
             applied.add("villages");
         }
         return applied;
-    }
-
-    /// Warned after registration, not while parsing, so a rejected file gets no warning on top.
-    private static void warnIfIgnored(ProfessionDefinition definition) {
-        List<String> ignored = ignoredFields(definition);
-        if (!ignored.isEmpty()) {
-            DataDrivenVillagers.LOGGER.warn("Override {} sets {}, which an override never reads: those "
-                            + "belong to the profession being created, and this file modifies one that exists",
-                    definition.target(), ignored);
-        }
     }
 
     /// Asks the profession's predicate, not names, since another mod need not name its job site after it.
@@ -915,7 +892,11 @@ public final class ProfessionLoader {
         String safeName = DefinitionParseException.sanitize(fileName);
         String reason = DefinitionParseException.readableReason(e);
         ProfessionRegistry.addError(safeName, reason);
-        DataDrivenVillagers.LOGGER.error("Skipping profession file {}: {}", safeName, reason);
+        if (e instanceof DefinitionParseException || e instanceof JsonParseException) {
+            DataDrivenVillagers.LOGGER.error("Skipping profession file {}: {}", safeName, reason);
+        } else {
+            DataDrivenVillagers.LOGGER.error("Skipping profession file {}: {}", safeName, reason, e);
+        }
     }
 
     private static PointOfInterestType createPointOfInterest(ProfessionDefinition definition,
@@ -983,8 +964,10 @@ public final class ProfessionLoader {
                 return Optional.of(id + " generates naturally in large numbers; every one in the world "
                         + "would become a job site. Set \"allow_natural_block\": true to use it anyway");
             }
-            DataDrivenVillagers.LOGGER.info("{} generates naturally in large numbers, allowed anyway by "
-                    + "\"allow_natural_block\"", id);
+            if (LOGGED_ALLOWED_ANYWAY.add(id)) {
+                DataDrivenVillagers.LOGGER.info("{} generates naturally in large numbers, allowed anyway by "
+                        + "\"allow_natural_block\"", id);
+            }
         }
         return Optional.empty();
     }
@@ -1002,6 +985,10 @@ public final class ProfessionLoader {
 
     public static boolean isNaturalBlock(Identifier blockId) {
         return NaturalBlocks.IDS.contains(blockId);
+    }
+
+    public static boolean isStructureBulkBlock(Identifier blockId) {
+        return StructureBulkBlocks.IDS.contains(blockId);
     }
 
     /// One point of interest type per block state; NeoForge aborts a second claim, Fabric lets the last writer win.
@@ -1080,9 +1067,8 @@ public final class ProfessionLoader {
                 workSound(definition));
     }
 
-    /// Vanilla builds the key as `entity.minecraft.villager.<path>` regardless of namespace.
     private static Text displayName(ProfessionDefinition definition) {
-        String key = "entity.minecraft.villager." + definition.name();
+        String key = PlatformInfo.villagerNameKey(definition.target());
         return definition.displayName()
                 .map(fallback -> (Text) Text.translatableWithFallback(key, fallback))
                 .orElseGet(() -> Text.translatable(key));

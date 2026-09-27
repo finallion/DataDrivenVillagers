@@ -481,7 +481,7 @@ public final class ProfessionEditorScreen extends Screen {
     /// The one action here reaching past the profession file: writes into the world's own datapacks.
     private void tradesButton(int left, int content, int y) {
         rows.add(new Row("Default trades", """
-                Writes the VillagerTradingPlus starting file for this profession
+                Writes the VillagersTradingPlus starting file for this profession
                 into this world's own datapacks, filled in from the saved file -
                 the same file /ddv scaffold makes, carried to where the game
                 reads it. Save first; the trades are built from what is on disk.

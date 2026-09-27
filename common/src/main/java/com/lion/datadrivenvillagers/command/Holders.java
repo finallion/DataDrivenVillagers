@@ -15,17 +15,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/// Who holds the places on a job site block: villagers working there (JOB_SITE), on the way
-/// (POTENTIAL_JOB_SITE, the ticket is taken when the villager sets off), or nobody (zombified or
-/// removed without dying). Read-only.
+/// Who holds the places on a job site block: villagers working there (JOB_SITE) or on the way
+/// (POTENTIAL_JOB_SITE, the ticket is taken when the villager sets off). A place this misses is not
+/// proof the holder is gone: it may be further away, or its chunk may not be loaded. Read-only.
 final class Holders {
 
-    /// Wider than the 48-block station list: a worker missed here would count as "nobody".
+    /// Wider than the 48-block station list, but still finite: a distant holder is not found here.
     private static final double REACH = 96;
 
     private final Map<BlockPos, Integer> working = new HashMap<>();
     private final Map<BlockPos, Integer> coming = new HashMap<>();
-    private int heldByNobody;
+    private int unaccountedFor;
 
     private Holders() {
     }
@@ -48,7 +48,7 @@ final class Holders {
                 .ifPresent(pos -> into.merge(pos.pos(), 1, Integer::sum));
     }
 
-    /// "1/3 free, 1 working there, 1 held by nobody". Also counts towards {@link #nobodyNote}.
+    /// "1/3 free, 1 working there, 1 not accounted for". Also counts towards {@link #unaccountedNote}.
     String describe(PointOfInterest station) {
         int free = station.getFreeTickets();
         int total = station.getType().value().ticketCount();
@@ -58,7 +58,7 @@ final class Holders {
         }
         int workers = working.getOrDefault(station.getPos(), 0);
         int walking = coming.getOrDefault(station.getPos(), 0);
-        int nobody = taken - workers - walking;
+        int unaccounted = taken - workers - walking;
         List<String> who = new ArrayList<>();
         if (workers > 0) {
             who.add(workers + " working there");
@@ -66,19 +66,19 @@ final class Holders {
         if (walking > 0) {
             who.add(walking + " on the way");
         }
-        if (nobody > 0) {
-            who.add(nobody + " held by nobody");
-            heldByNobody += nobody;
+        if (unaccounted > 0) {
+            who.add(unaccounted + " not accounted for");
+            unaccountedFor += unaccounted;
         }
         return free + "/" + total + " free, " + String.join(", ", who);
     }
 
-    /// Summary suffix for places held by nobody; call after every {@link #describe}.
-    String nobodyNote() {
-        if (heldByNobody == 0) {
+    /// Summary suffix for places this scan could not account for; call after every {@link #describe}.
+    String unaccountedNote() {
+        if (unaccountedFor == 0) {
             return "";
         }
-        return "; " + heldByNobody + " place(s) held by nobody: a villager that was zombified or removed "
-                + "without dying keeps its place, break and replace the block";
+        return "; " + unaccountedFor + " place(s) not accounted for within " + (int) REACH
+                + " blocks: the holder may be further away or its chunk may not be loaded";
     }
 }

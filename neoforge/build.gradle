@@ -50,6 +50,7 @@ shadowJar {
 
 	configurations = [project.configurations.shadowCommon]
 	archiveClassifier.set("dev-shadow")
+	from(rootProject.file("LICENSE"))
 }
 
 remapJar {

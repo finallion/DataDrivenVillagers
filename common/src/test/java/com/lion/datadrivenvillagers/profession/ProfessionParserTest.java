@@ -187,6 +187,23 @@ class ProfessionParserTest {
     }
 
     @Test
+    void rejectsCreationOnlyFieldsOnAnOverride() {
+        DefinitionParseException displayName = assertThrows(DefinitionParseException.class, () -> parse("x", """
+                { "overrides": "minecraft:farmer", "display_name": "Baker" }
+                """));
+        assertTrue(displayName.getMessage().contains("display_name"), displayName.getMessage());
+
+        DefinitionParseException several = assertThrows(DefinitionParseException.class, () -> parse("x", """
+                { "overrides": "minecraft:farmer", "work_sound": "minecraft:entity.villager.work_farmer",
+                  "gatherable_items": ["minecraft:wheat"], "secondary_job_sites": ["minecraft:cake"],
+                  "ticket_count": 2, "search_distance": 3 }
+                """));
+        assertTrue(several.getMessage().contains("work_sound") && several.getMessage().contains("gatherable_items")
+                && several.getMessage().contains("secondary_job_sites") && several.getMessage().contains("ticket_count")
+                && several.getMessage().contains("search_distance"), several.getMessage());
+    }
+
+    @Test
     void readsBlocksAddedToAnOverriddenProfession() {
         ProfessionDefinition definition = parse("farmer_plus", """
                 { "overrides": "minecraft:farmer", "add_workstations": ["minecraft:hay_block"] }
