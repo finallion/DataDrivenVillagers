@@ -18,6 +18,7 @@ import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundEvent;
@@ -470,7 +471,10 @@ public final class ProfessionLoader {
     private static String moveWorkstations(ProfessionDefinition old, ProfessionDefinition next) {
         List<Identifier> before = old.isOverride() ? old.addWorkstations() : old.workstations();
         List<Identifier> after = next.isOverride() ? next.addWorkstations() : next.workstations();
-        if (before.equals(after)) {
+        // An override's block set is read fresh each time, so a flag-only change can still be applied here.
+        boolean revisitForFlag = next.isOverride() && old.allowNaturalBlock() != next.allowNaturalBlock()
+                && after.stream().anyMatch(NaturalBlocks.IDS::contains);
+        if (before.equals(after) && !revisitForFlag) {
             return "";
         }
 
@@ -485,13 +489,23 @@ public final class ProfessionLoader {
         for (Identifier blockId : before) {
             if (!after.contains(blockId)) {
                 released += releaseBlock(blockId, poi);
+            } else if (revisitForFlag && NaturalBlocks.IDS.contains(blockId)) {
+                if (next.allowNaturalBlock()) {
+                    if (claimBlock(blockId, poi, true)) {
+                        claimed++;
+                    } else {
+                        refused.add(blockId);
+                    }
+                } else {
+                    released += releaseBlock(blockId, poi);
+                }
             }
         }
         for (Identifier blockId : after) {
             if (before.contains(blockId)) {
                 continue;
             }
-            if (claimBlock(blockId, poi)) {
+            if (claimBlock(blockId, poi, next.allowNaturalBlock())) {
                 claimed++;
             } else {
                 refused.add(blockId);
@@ -507,6 +521,9 @@ public final class ProfessionLoader {
         }
         if (!refused.isEmpty()) {
             said.add("refused " + refused + ", unknown, unsuitable, or already a job site");
+        }
+        if (said.isEmpty() && revisitForFlag) {
+            return "allow_natural_block changed, no natural block in the list was affected";
         }
         return String.join(", ", said);
     }
@@ -527,9 +544,10 @@ public final class ProfessionLoader {
         return removed ? 1 : 0;
     }
 
-    private static boolean claimBlock(Identifier blockId, RegistryEntry<PointOfInterestType> poi) {
+    private static boolean claimBlock(Identifier blockId, RegistryEntry<PointOfInterestType> poi,
+                                      boolean allowNaturalBlock) {
         Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
-        if (block.isEmpty() || unsuitableWorkstation(block.get()).isPresent()) {
+        if (block.isEmpty() || unsuitableWorkstation(block.get(), allowNaturalBlock).isPresent()) {
             return false;
         }
         Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
@@ -561,12 +579,15 @@ public final class ProfessionLoader {
     }
 
     /// Changed fields that live in a frozen vanilla record. Empty for an override, which never reads them.
-    private static List<String> frozenFields(ProfessionDefinition old, ProfessionDefinition next) {
+    static List<String> frozenFields(ProfessionDefinition old, ProfessionDefinition next) {
         if (next.isOverride()) {
             return List.of();
         }
 
         List<String> changed = new ArrayList<>();
+        if (old.allowNaturalBlock() != next.allowNaturalBlock()) {
+            changed.add("allow_natural_block");
+        }
         if (!old.displayName().equals(next.displayName())) {
             changed.add("display_name");
         }
@@ -625,18 +646,53 @@ public final class ProfessionLoader {
             List<Identifier> blocks = definition.isOverride()
                     ? definition.addWorkstations()
                     : definition.workstations();
-            reclaim(definition.target(), blocks, jobSite);
+            reclaim(definition.target(), blocks, jobSite, definition.allowNaturalBlock());
         }
         retryRejectedOverrides();
+        for (String warning : naturalBlockWarnings()) {
+            DataDrivenVillagers.LOGGER.warn(warning);
+        }
     }
 
-    /// Fills only the states a registry refresh dropped; a state already ours or someone else's is left alone.
+    /// Claimed blocks outside the fixed list that still generate in bulk, most likely a modded block.
+    public static List<String> naturalBlockWarnings() {
+        List<String> warnings = new ArrayList<>();
+        for (ProfessionDefinition definition : ProfessionRegistry.ordered()) {
+            if (definition.allowNaturalBlock()) {
+                continue;
+            }
+            List<Identifier> blockIds = definition.isOverride()
+                    ? definition.addWorkstations()
+                    : definition.workstations();
+            for (Identifier blockId : blockIds) {
+                Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
+                // Vanilla blocks are covered by the fixed list; the tags only catch blocks of other mods.
+                if (block.isEmpty() || blockId.getNamespace().equals("minecraft")) {
+                    continue;
+                }
+                if (generatesInBulk(block.get().getDefaultState())) {
+                    warnings.add(definition.target() + " claims " + blockId + ", which world generation "
+                            + "likely places in bulk; set \"allow_natural_block\": true if that is intended");
+                }
+            }
+        }
+        return warnings;
+    }
+
+    private static boolean generatesInBulk(BlockState state) {
+        return state.isIn(BlockTags.BASE_STONE_OVERWORLD) || state.isIn(BlockTags.BASE_STONE_NETHER)
+                || state.isIn(BlockTags.DIRT) || state.isIn(BlockTags.SAND)
+                || state.isIn(BlockTags.LOGS) || state.isIn(BlockTags.LEAVES)
+                || state.isIn(BlockTags.TERRACOTTA);
+    }
+
+    /// Fills only states a registry refresh left empty, leaving an already-claimed state as it is.
     private static void reclaim(Identifier owner, List<Identifier> blockIds,
-                                RegistryEntry<PointOfInterestType> jobSite) {
+                                RegistryEntry<PointOfInterestType> jobSite, boolean allowNaturalBlock) {
         int restored = 0;
         for (Identifier blockId : blockIds) {
             Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
-            if (block.isEmpty() || unsuitableWorkstation(block.get()).isPresent()) {
+            if (block.isEmpty() || unsuitableWorkstation(block.get(), allowNaturalBlock).isPresent()) {
                 continue;
             }
             Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
@@ -789,7 +845,7 @@ public final class ProfessionLoader {
                 continue;
             }
 
-            Optional<String> reason = unsuitableWorkstation(block.get());
+            Optional<String> reason = unsuitableWorkstation(block.get(), definition.allowNaturalBlock());
             if (reason.isPresent()) {
                 unsuitable.add(reason.get());
                 continue;
@@ -873,7 +929,7 @@ public final class ProfessionLoader {
                 continue;
             }
 
-            Optional<String> reason = unsuitableWorkstation(block.get());
+            Optional<String> reason = unsuitableWorkstation(block.get(), definition.allowNaturalBlock());
             if (reason.isPresent()) {
                 unsuitable.add(reason.get());
                 continue;
@@ -908,8 +964,7 @@ public final class ProfessionLoader {
         return new PointOfInterestType(Set.copyOf(states), definition.ticketCount(), definition.searchDistance());
     }
 
-    /// Rejects air, fluid blocks and blocks with no collision as a workstation.
-    static Optional<String> unsuitableWorkstation(Block block) {
+    static Optional<String> unsuitableWorkstation(Block block, boolean allowNaturalBlock) {
         Identifier id = Registries.BLOCK.getId(block);
         if (block.getDefaultState().isAir()) {
             return Optional.of(id + " is air and cannot be a workstation");
@@ -919,6 +974,14 @@ public final class ProfessionLoader {
         }
         if (block.getDefaultState().getCollisionShape(EmptyBlockView.INSTANCE, BlockPos.ORIGIN).isEmpty()) {
             return Optional.of(id + " has no collision and cannot be a workstation");
+        }
+        if (NaturalBlocks.IDS.contains(id)) {
+            if (!allowNaturalBlock) {
+                return Optional.of(id + " generates naturally in large numbers; every one in the world "
+                        + "would become a job site. Set \"allow_natural_block\": true to use it anyway");
+            }
+            DataDrivenVillagers.LOGGER.info("{} generates naturally in large numbers, allowed anyway by "
+                    + "\"allow_natural_block\"", id);
         }
         return Optional.empty();
     }
@@ -932,6 +995,10 @@ public final class ProfessionLoader {
             }
         }
         return existingOwner(states);
+    }
+
+    public static boolean isNaturalBlock(Identifier blockId) {
+        return NaturalBlocks.IDS.contains(blockId);
     }
 
     /// One point of interest type per block state; NeoForge aborts a second claim, Fabric lets the last writer win.
@@ -964,7 +1031,7 @@ public final class ProfessionLoader {
                 missing.add(blockId);
                 continue;
             }
-            Optional<String> reason = unsuitableWorkstation(block.get());
+            Optional<String> reason = unsuitableWorkstation(block.get(), definition.allowNaturalBlock());
             if (reason.isPresent()) {
                 unsuitable.add(reason.get());
                 continue;

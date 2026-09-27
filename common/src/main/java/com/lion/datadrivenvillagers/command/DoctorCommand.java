@@ -78,6 +78,13 @@ public final class DoctorCommand {
         StructureRegistry.errors().forEach(error -> lines.add("structures/" + error.file() + "  " + error.reason()));
         lines.add("");
 
+        List<String> naturalBlockWarnings = ProfessionLoader.naturalBlockWarnings();
+        if (!naturalBlockWarnings.isEmpty()) {
+            lines.add("== Natural block warnings ==");
+            lines.addAll(naturalBlockWarnings);
+            lines.add("");
+        }
+
         for (ProfessionDefinition definition : ProfessionRegistry.ordered()) {
             Report report = WhyCommand.professionReport(source, definition);
             broken += append(lines, report);

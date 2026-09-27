@@ -121,6 +121,17 @@ public final class JsonFields {
         return Optional.of(value);
     }
 
+    public static boolean optionalBoolean(JsonObject root, String field, boolean fallback) {
+        JsonElement element = root.get(field);
+        if (element == null || element.isJsonNull()) {
+            return fallback;
+        }
+        if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isBoolean()) {
+            throw new DefinitionParseException("\"" + field + "\" must be true or false");
+        }
+        return element.getAsBoolean();
+    }
+
     public static int positiveInt(JsonObject root, String field, int fallback) {
         JsonElement element = root.get(field);
         if (element == null || element.isJsonNull()) {

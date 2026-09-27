@@ -81,4 +81,34 @@ class ProfessionReloadTest {
         assertTrue(ProfessionLoader.rejectionDetail(edited, kept).contains("stays in effect"));
         assertEquals("End of input", ProfessionLoader.rejectionDetail(fresh, kept));
     }
+
+    @Test
+    void allowNaturalBlockAloneNeedsARestartOnAProfession() {
+        ProfessionDefinition before = parse("zz_test_custom", """
+                { "workstation": "minecraft:lantern" }
+                """);
+        ProfessionDefinition after = parse("zz_test_custom", """
+                { "workstation": "minecraft:lantern", "allow_natural_block": true }
+                """);
+
+        assertTrue(ProfessionLoader.frozenFields(before, after).contains("allow_natural_block"));
+    }
+
+    @Test
+    void allowNaturalBlockAloneNeedsNoRestartOnAnOverride() {
+        ProfessionDefinition before = parse("zz_test_farmer_night", """
+                { "overrides": "minecraft:farmer" }
+                """);
+        ProfessionDefinition after = parse("zz_test_farmer_night", """
+                { "overrides": "minecraft:farmer", "allow_natural_block": true }
+                """);
+
+        assertTrue(ProfessionLoader.frozenFields(before, after).isEmpty());
+    }
+
+    @Test
+    void isNaturalBlockMatchesTheFixedList() {
+        assertTrue(ProfessionLoader.isNaturalBlock(Identifier.ofVanilla("stone")));
+        assertFalse(ProfessionLoader.isNaturalBlock(Identifier.ofVanilla("crafting_table")));
+    }
 }
