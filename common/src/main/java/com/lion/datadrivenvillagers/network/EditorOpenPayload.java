@@ -16,7 +16,7 @@ import net.minecraft.network.packet.CustomPayload;
 /// @param state    what the running game holds for this file, already phrased
 public record EditorOpenPayload(String fileName, String json, Note state) implements CustomPayload {
 
-    static final int MAX_JSON = 262144;
+    public static final int MAX_JSON = 262144;
 
     public static final Id<EditorOpenPayload> ID = new Id<>(DataDrivenVillagers.id("editor_open"));
 

@@ -910,9 +910,10 @@ public final class ProfessionLoader {
 
     /// Records the reason for `/ddv errors`; the game keeps going without this profession.
     private static void reject(String fileName, Exception e) {
+        String safeName = DefinitionParseException.sanitize(fileName);
         String reason = DefinitionParseException.readableReason(e);
-        ProfessionRegistry.addError(fileName, reason);
-        DataDrivenVillagers.LOGGER.error("Skipping profession file {}: {}", fileName, reason);
+        ProfessionRegistry.addError(safeName, reason);
+        DataDrivenVillagers.LOGGER.error("Skipping profession file {}: {}", safeName, reason);
     }
 
     private static PointOfInterestType createPointOfInterest(ProfessionDefinition definition,

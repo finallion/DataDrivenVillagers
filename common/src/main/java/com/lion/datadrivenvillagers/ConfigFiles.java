@@ -121,8 +121,17 @@ public final class ConfigFiles {
         }
     }
 
+    public interface StreamWriter {
+        void write(OutputStream stream) throws IOException;
+    }
+
     /// Writes a new sibling with a random name, then moves it over the target.
     public static void writeAtomically(Path target, String content) throws IOException {
+        writeAtomically(target, stream -> stream.write(content.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /// Same guarantee as the string overload, for binary content.
+    public static void writeAtomically(Path target, StreamWriter writer) throws IOException {
         Path folder = target.getParent();
         String name = target.getFileName().toString();
         FileAlreadyExistsException lastCollision = null;
@@ -131,12 +140,15 @@ public final class ConfigFiles {
             Path tmp = folder.resolve(name + "." + UUID.randomUUID() + ".tmp");
             try (OutputStream stream = Files.newOutputStream(tmp, StandardOpenOption.CREATE_NEW,
                     StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
-                stream.write(content.getBytes(StandardCharsets.UTF_8));
+                writer.write(stream);
             } catch (FileAlreadyExistsException e) {
                 lastCollision = e;
                 continue;
             } catch (IOException e) {
                 deleteQuietly(tmp, e);
+                throw e;
+            } catch (RuntimeException e) {
+                deleteQuietly(tmp);
                 throw e;
             }
             try {
@@ -159,6 +171,14 @@ public final class ConfigFiles {
             Files.deleteIfExists(tmp);
         } catch (IOException e) {
             cause.addSuppressed(e);
+        }
+    }
+
+    private static void deleteQuietly(Path tmp) {
+        try {
+            Files.deleteIfExists(tmp);
+        } catch (IOException ignored) {
+            // Best effort: the original failure is what the caller needs to see.
         }
     }
 }

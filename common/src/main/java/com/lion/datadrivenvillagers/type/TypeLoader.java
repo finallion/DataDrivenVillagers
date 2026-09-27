@@ -336,8 +336,9 @@ public final class TypeLoader {
     }
 
     private static void reject(String fileName, Exception e) {
+        String safeName = DefinitionParseException.sanitize(fileName);
         String reason = DefinitionParseException.readableReason(e);
-        TypeRegistry.addError(fileName, reason);
-        DataDrivenVillagers.LOGGER.error("Skipping villager type file {}: {}", fileName, reason);
+        TypeRegistry.addError(safeName, reason);
+        DataDrivenVillagers.LOGGER.error("Skipping villager type file {}: {}", safeName, reason);
     }
 }

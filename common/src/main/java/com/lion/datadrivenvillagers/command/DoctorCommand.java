@@ -22,7 +22,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
@@ -104,7 +103,7 @@ public final class DoctorCommand {
         Path file = ProfessionLoader.directory().getParent().resolve(FILE);
         try {
             Files.createDirectories(file.getParent());
-            Files.write(file, lines, StandardCharsets.UTF_8);
+            ConfigFiles.writeAtomically(file, String.join("\n", lines) + "\n");
         } catch (IOException e) {
             DataDrivenVillagers.LOGGER.error("Could not write {}", file, e);
             source.sendError(Text.literal("Could not write " + ConfigFiles.relative(file)
