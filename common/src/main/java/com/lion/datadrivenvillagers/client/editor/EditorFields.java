@@ -159,13 +159,13 @@ public final class EditorFields {
                      blocks.
                     A villager that also runs from what it attacks will run - the fear wins."""),
             new Spec("damage", "Attack damage", Shape.NUMBER, Source.NONE,
-                    String.valueOf((int) Attack.DEFAULT_DAMAGE),
+                    "default " + (int) Attack.DEFAULT_DAMAGE,
                     """
                     How hard it hits, in half hearts.
                     Only read when Attacks names something. Empty this and the cooldown and
                     the whole attack block leaves the file."""),
             new Spec("cooldown", "Attack cooldown", Shape.NUMBER, Source.NONE,
-                    String.valueOf(Attack.DEFAULT_COOLDOWN),
+                    "default " + Attack.DEFAULT_COOLDOWN,
                     """
                     Ticks between two swings. Twenty ticks is one second."""));
 

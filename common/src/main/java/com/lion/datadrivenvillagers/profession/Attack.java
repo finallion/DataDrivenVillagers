@@ -30,8 +30,13 @@ public record Attack(List<EntityRange> targets, double damage, int cooldown) {
     public static Optional<Attack> parse(JsonObject root) {
         List<EntityRange> targets = EntityRange.parse(root, TARGETS);
         JsonElement settings = root.get(SETTINGS);
+        boolean hasSettings = settings != null && !settings.isJsonNull();
+        if (hasSettings && !settings.isJsonObject()) {
+            throw new DefinitionParseException("\"" + SETTINGS + "\" must be an object with \"damage\" "
+                    + "and \"cooldown\"");
+        }
         if (targets.isEmpty()) {
-            if (settings != null && !settings.isJsonNull()) {
+            if (hasSettings) {
                 throw new DefinitionParseException("\"" + SETTINGS + "\" sets damage and cooldown, but \""
                         + TARGETS + "\" names nothing to use them on");
             }
@@ -39,11 +44,7 @@ public record Attack(List<EntityRange> targets, double damage, int cooldown) {
         }
         double damage = DEFAULT_DAMAGE;
         int cooldown = DEFAULT_COOLDOWN;
-        if (settings != null && !settings.isJsonNull()) {
-            if (!settings.isJsonObject()) {
-                throw new DefinitionParseException("\"" + SETTINGS + "\" must be an object with \"damage\" "
-                        + "and \"cooldown\"");
-            }
+        if (hasSettings) {
             JsonObject object = settings.getAsJsonObject();
             damage = positiveDouble(object, "damage", DEFAULT_DAMAGE);
             cooldown = JsonFields.positiveInt(object, "cooldown", DEFAULT_COOLDOWN);
