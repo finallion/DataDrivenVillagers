@@ -329,7 +329,7 @@ public final class ProfessionEditorScreen extends Screen {
         });
     }
 
-    /// Adds a label-and-box row to the list; the label carries the help text as a vanilla tooltip.
+    /// The label carries the help text as a vanilla tooltip.
     private TextFieldWidget box(Spec spec, String value, Consumer<String> onChange) {
         TextWidget label = new TextWidget(LABEL_WIDTH, ROW_HEIGHT, Text.literal(spec.label()), textRenderer)
                 .alignLeft();

@@ -9,8 +9,7 @@ import net.minecraft.client.gui.widget.ElementListWidget;
 
 import java.util.List;
 
-/// Vanilla's own scrolling list. Every profession field is one row: a label on the left, its widget
-/// on the right. Scrolling, clipping and focus order are handed to the vanilla list, not hand-rolled.
+/// One row per profession field. Vanilla handles scrolling, clipping and focus order.
 public final class EditorRowList extends ElementListWidget<EditorRowList.Row> {
 
     private final int rowGutter;
@@ -31,7 +30,7 @@ public final class EditorRowList extends ElementListWidget<EditorRowList.Row> {
         addEntry(row);
     }
 
-    /// One label and its field. The list repositions both on every render call, so scroll is free.
+    /// The list places both widgets again on every render, so scrolling needs no extra code.
     public static final class Row extends ElementListWidget.Entry<Row> {
         private final ClickableWidget label;
         private final ClickableWidget field;
