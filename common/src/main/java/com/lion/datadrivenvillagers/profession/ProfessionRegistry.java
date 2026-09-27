@@ -1,6 +1,8 @@
 package com.lion.datadrivenvillagers.profession;
 
 import com.lion.datadrivenvillagers.CopyOnWrite;
+import com.lion.datadrivenvillagers.LoadError;
+import com.lion.datadrivenvillagers.LoadErrors;
 
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
@@ -18,15 +20,10 @@ public final class ProfessionRegistry {
 
     private static volatile Map<Identifier, ProfessionDefinition> definitions = Collections.emptyMap();
     private static volatile Map<Identifier, RegistryEntry<PointOfInterestType>> poiEntries = Collections.emptyMap();
-    private static volatile List<LoadError> errors = Collections.emptyList();
+    private static final LoadErrors errors = new LoadErrors();
     private static volatile boolean anyVillageRestrictions = false;
 
     private ProfessionRegistry() {
-    }
-
-    /// @param file   file name with extension
-    /// @param reason phrased for a pack author
-    public record LoadError(String file, String reason) {
     }
 
     /// Keyed by {@link ProfessionDefinition#target()}, so an override is found under the vanilla id.
@@ -69,16 +66,16 @@ public final class ProfessionRegistry {
     }
 
     public static void addError(String file, String reason) {
-        errors = CopyOnWrite.plus(errors, new LoadError(file, reason));
+        errors.add(file, reason);
     }
 
     public static void clearErrors() {
-        errors = Collections.emptyList();
+        errors.clear();
     }
 
     /// Drops the rejection of one file, so `/ddv errors` stops naming it.
     public static void removeError(String file) {
-        errors = CopyOnWrite.minus(errors, error -> error.file().equals(file));
+        errors.remove(file);
     }
 
     public static Optional<ProfessionDefinition> get(Identifier id) {
@@ -110,7 +107,7 @@ public final class ProfessionRegistry {
     }
 
     public static List<LoadError> errors() {
-        return errors;
+        return errors.list();
     }
 
     public static boolean isEmpty() {

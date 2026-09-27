@@ -1,6 +1,8 @@
 package com.lion.datadrivenvillagers.type;
 
 import com.lion.datadrivenvillagers.CopyOnWrite;
+import com.lion.datadrivenvillagers.LoadError;
+import com.lion.datadrivenvillagers.LoadErrors;
 
 import net.minecraft.util.Identifier;
 
@@ -14,14 +16,9 @@ import java.util.Optional;
 public final class TypeRegistry {
 
     private static volatile Map<Identifier, TypeDefinition> definitions = Collections.emptyMap();
-    private static volatile List<LoadError> errors = Collections.emptyList();
+    private static final LoadErrors errors = new LoadErrors();
 
     private TypeRegistry() {
-    }
-
-    /// @param file   file name the failure came from
-    /// @param reason phrased for a pack author
-    public record LoadError(String file, String reason) {
     }
 
     public static void add(TypeDefinition definition) {
@@ -39,11 +36,11 @@ public final class TypeRegistry {
     }
 
     public static void addError(String file, String reason) {
-        errors = CopyOnWrite.plus(errors, new LoadError(file, reason));
+        errors.add(file, reason);
     }
 
     public static void clearErrors() {
-        errors = Collections.emptyList();
+        errors.clear();
     }
 
     public static Optional<TypeDefinition> get(Identifier id) {
@@ -60,7 +57,7 @@ public final class TypeRegistry {
     }
 
     public static List<LoadError> errors() {
-        return errors;
+        return errors.list();
     }
 
     public static boolean isEmpty() {
