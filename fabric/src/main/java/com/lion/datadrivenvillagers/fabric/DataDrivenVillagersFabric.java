@@ -22,7 +22,7 @@ public class DataDrivenVillagersFabric implements ModInitializer {
         DataDrivenVillagers.init();
 
         CommandRegistrationCallback.EVENT.register(
-                (dispatcher, access, environment) -> DataDrivenVillagersCommand.register(dispatcher, access));
+                (dispatcher, access, environment) -> DataDrivenVillagersCommand.register(dispatcher));
 
         // Client tag loads fire in single player too; the claim maps are server-side state.
         CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> {

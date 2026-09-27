@@ -110,7 +110,6 @@ public final class ScheduleParser {
 
         int time = element.getAsInt();
         if (time < 0 || time >= DAY_LENGTH) {
-            // Rejected rather than wrapped: 25000 is more likely a misunderstanding than a way of writing 1000.
             throw new DefinitionParseException("\"" + where + ".time\" is " + time
                     + ", but a Minecraft day is 0 to " + (DAY_LENGTH - 1)
                     + " ticks, 0 being sunrise and 12000 sunset");

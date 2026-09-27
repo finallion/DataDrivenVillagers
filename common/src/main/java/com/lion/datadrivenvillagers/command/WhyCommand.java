@@ -2,7 +2,12 @@ package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
+import com.lion.datadrivenvillagers.LoadError;
 import com.lion.datadrivenvillagers.PngHeader;
+import com.lion.datadrivenvillagers.mixin.PointOfInterestTypesAccessor;
+import com.lion.datadrivenvillagers.mixin.SinglePoolElementAccessor;
+import com.lion.datadrivenvillagers.mixin.StructurePoolAccessor;
+import com.lion.datadrivenvillagers.mixin.VillagerTypeAccessor;
 import com.lion.datadrivenvillagers.network.LookSync;
 import com.lion.datadrivenvillagers.platform.JobSiteStates;
 import com.lion.datadrivenvillagers.platform.PlatformInfo;
@@ -27,7 +32,6 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.IdentifierArgumentType;
@@ -47,7 +51,6 @@ import net.minecraft.structure.StructureTemplate;
 import net.minecraft.structure.pool.SinglePoolElement;
 import net.minecraft.structure.pool.StructurePool;
 import net.minecraft.structure.pool.StructurePoolElement;
-import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
@@ -59,7 +62,6 @@ import net.minecraft.world.biome.Biome;
 import net.minecraft.world.poi.PointOfInterest;
 import net.minecraft.world.poi.PointOfInterestStorage;
 import net.minecraft.world.poi.PointOfInterestType;
-import net.minecraft.world.poi.PointOfInterestTypes;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -67,9 +69,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.Set;
 
 /// `/ddv why <name>`: walks the chain behind a profession, type or structure and names the link that
 /// broke. Every check reads the runtime state vanilla reads (registries, POI_STATES_TO_TYPE, tags,
@@ -78,6 +80,10 @@ public final class WhyCommand {
 
     private static final SuggestionProvider<ServerCommandSource> KNOWN_NAMES =
             (context, builder) -> CommandSource.suggestIdentifiers(knownNames(), builder);
+
+    private static final int STATION_RADIUS = 48;
+    private static final int SHORT_LIST_LIMIT = 3;
+    private static final int MAX_LISTED = 8;
 
     private WhyCommand() {
     }
@@ -141,8 +147,6 @@ public final class WhyCommand {
         return DataDrivenVillagers.id(asked.getPath());
     }
 
-    // ---------------------------------------------------------------- professions
-
     /// Chain: profession registered, accepts a job site, job site in `acquirable_job_site`, a block leads back to it.
     static Report professionReport(ServerCommandSource source, ProfessionDefinition definition) {
         Report report = new Report();
@@ -198,9 +202,7 @@ public final class WhyCommand {
     /// On Fabric, a later-registered point of interest silently takes over a block state in `JobSiteStates`.
     private static void blocks(Report report, ProfessionDefinition definition,
                                RegistryEntry<PointOfInterestType> poi) {
-        List<Identifier> declared = definition.isOverride()
-                ? definition.addWorkstations()
-                : definition.workstations();
+        List<Identifier> declared = definition.ownBlocks();
 
         if (declared.isEmpty()) {
             report.skipped("blocks lead to the job site", "this file adds no blocks of its own");
@@ -225,7 +227,7 @@ public final class WhyCommand {
             if (owner == null) {
                 leading++;
                 notes.add(new Note(true, blockId + "  "
-                        + PointOfInterestTypes.getStatesOfBlock(block.get()).size() + " state(s)"));
+                        + PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get()).size() + " state(s)"));
             } else {
                 notes.add(new Note(false, blockId + "  " + owner));
             }
@@ -246,24 +248,15 @@ public final class WhyCommand {
 
     /// @return null when every state of the block leads to this job site, otherwise who holds it
     private static String ownerOf(Block block, RegistryEntry<PointOfInterestType> poi, boolean allowNaturalBlock) {
-        Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block);
-        if (states.isEmpty()) {
-            return "block has no states";
+        String ownId = poi.getKey().map(key -> key.getValue().toString()).orElse(null);
+        ProfessionLoader.BlockVerdict verdict = ProfessionLoader.check(block, allowNaturalBlock, ownId, Map.of());
+        if (verdict.unsuitableReason().isPresent()) {
+            return verdict.unsuitableReason().get();
         }
-
-        for (BlockState state : states) {
-            RegistryEntry<PointOfInterestType> holder = JobSiteStates.get(state);
-            if (holder == null) {
-                if (!allowNaturalBlock && ProfessionLoader.isNaturalBlock(Registries.BLOCK.getId(block))) {
-                    return "generates naturally, needs \"allow_natural_block\": true";
-                }
-                return "not a job site block";
-            }
-            if (holder.value() != poi.value()) {
-                return "belongs to " + ProfessionLoader.idOf(holder);
-            }
+        if (verdict.ownerId().isPresent()) {
+            return "belongs to " + verdict.ownerId().get();
         }
-        return null;
+        return verdict.anyStateFree() ? "not a job site block" : null;
     }
 
     /// Extra facts appear below regardless of the verdict: even a broken profession gets them reported.
@@ -363,12 +356,13 @@ public final class WhyCommand {
                 .distinct().sorted().toList();
     }
 
-    /// Cut after three, so a line stays a line; `/ddv blocks` has the full list.
+    /// Cut after `SHORT_LIST_LIMIT`, so a line stays a line; `/ddv blocks` has the full list.
     private static String shortList(List<String> blocks) {
-        if (blocks.size() <= 3) {
+        if (blocks.size() <= SHORT_LIST_LIMIT) {
             return and(blocks);
         }
-        return String.join(", ", blocks.subList(0, 3)) + " and " + (blocks.size() - 3) + " more";
+        return String.join(", ", blocks.subList(0, SHORT_LIST_LIMIT)) + " and "
+                + (blocks.size() - SHORT_LIST_LIMIT) + " more";
     }
 
     /// In parentheses, for appending to a line that already says something.
@@ -385,28 +379,29 @@ public final class WhyCommand {
         return String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.get(parts.size() - 1);
     }
 
-    /// Blocks of this job site within 48 blocks of the player, with free places and who holds the rest.
+    /// Blocks of this job site within `STATION_RADIUS` blocks of the player, with free places and who holds the rest.
     private static void placed(Report report, ServerCommandSource source, RegistryEntry<PointOfInterestType> poi) {
         BlockPos here = BlockPos.ofFloored(source.getPosition());
         List<PointOfInterest> stations = source.getWorld().getPointOfInterestStorage()
-                .getInCircle(entry -> entry.value() == poi.value(), here, 48, PointOfInterestStorage.OccupationStatus.ANY)
+                .getInCircle(entry -> entry.value() == poi.value(), here, STATION_RADIUS,
+                        PointOfInterestStorage.OccupationStatus.ANY)
                 .toList();
         if (stations.isEmpty()) {
             // Names the block so the player knows what to place; "block of this job site" would not say.
             List<String> blocks = jobSiteBlocks(poi);
             report.extra("placed", Text.literal("no "
                             + (blocks.isEmpty() ? "block of this job site" : shortList(blocks))
-                            + " within 48 blocks of you")
+                            + " within " + STATION_RADIUS + " blocks of you")
                     .formatted(Formatting.GRAY));
             return;
         }
         // Lines first: the summary's unaccounted-for note depends on what describe() counted.
         Holders holders = Holders.around(source.getWorld(), here);
         List<Note> notes = new ArrayList<>();
-        stations.stream().limit(8).forEach(station -> notes.add(new Note(station.hasSpace(),
+        stations.stream().limit(MAX_LISTED).forEach(station -> notes.add(new Note(station.hasSpace(),
                 station.getPos().toShortString() + "  " + holders.describe(station))));
         long withSpace = stations.stream().filter(PointOfInterest::hasSpace).count();
-        report.extra("placed", Text.literal(stations.size() + " block(s) within 48 blocks of you, " + withSpace
+        report.extra("placed", Text.literal(stations.size() + " block(s) within " + STATION_RADIUS + " blocks of you, " + withSpace
                 + " with a free place" + holders.unaccountedNote())
                 .formatted(withSpace == 0 ? Formatting.YELLOW : Formatting.GRAY));
         report.notes(notes, Formatting.GREEN);
@@ -537,8 +532,6 @@ public final class WhyCommand {
                 .formatted(usable ? Formatting.GRAY : Formatting.RED));
     }
 
-    // ---------------------------------------------------------------- villager types
-
     /// Chain: type registered, named biomes (startup), tagged biomes (tag bind); reads BIOME_TO_TYPE live.
     static Report typeReport(ServerCommandSource source, TypeDefinition definition) {
         Report report = new Report();
@@ -560,7 +553,7 @@ public final class WhyCommand {
         namedBiomes(report, definition, key, biomes);
         biomeTags(report, definition, key, biomes);
 
-        long held = VillagerType.BIOME_TO_TYPE.values().stream()
+        long held = VillagerTypeAccessor.ddv$biomeToType().values().stream()
                 .filter(type -> definition.id().equals(Registries.VILLAGER_TYPE.getId(type))).count();
         if (report.isBroken()) {
             report.verdict(false, "Broken at: " + report.firstBreak());
@@ -613,7 +606,7 @@ public final class WhyCommand {
 
     /// @return the id of the villager type holding this biome, null when nothing holds it
     private static Identifier holderOf(RegistryKey<Biome> biome) {
-        VillagerType holder = VillagerType.BIOME_TO_TYPE.get(biome);
+        VillagerType holder = VillagerTypeAccessor.ddv$biomeToType().get(biome);
         return holder == null ? null : Registries.VILLAGER_TYPE.getId(holder);
     }
 
@@ -669,8 +662,6 @@ public final class WhyCommand {
         }
         report.notes(notes);
     }
-
-    // ---------------------------------------------------------------- structures
 
     /// Chain: template readable, has a jigsaw block, is in the pools; without one, a piece is silently never placed.
     static Report structureReport(ServerCommandSource source, StructureDefinition definition) {
@@ -753,17 +744,17 @@ public final class WhyCommand {
         List<Note> notes = new ArrayList<>();
         int found = 0;
         for (Identifier poolId : definition.targetPools()) {
-            StructurePool pool = registry.getOrEmpty(poolId).orElse(null);
-            if (pool == null) {
+            Optional<StructurePool> pool = registry.getOrEmpty(poolId);
+            if (pool.isEmpty()) {
                 notes.add(new Note(false, poolId + "  no such pool in this world"));
                 continue;
             }
-            int copies = countIn(pool, definition.templateId(poolId));
+            int copies = countIn(pool.get(), definition.templateId(poolId));
             if (copies == 0) {
                 notes.add(new Note(false, poolId + "  not in it"));
             } else {
                 found++;
-                notes.add(new Note(true, poolId + "  " + copies + " of " + pool.getElementCount() + " draw(s)"));
+                notes.add(new Note(true, poolId + "  " + copies + " of " + pool.get().getElementCount() + " draw(s)"));
             }
         }
 
@@ -780,19 +771,17 @@ public final class WhyCommand {
     /// Draws of this pool that land on the template: vanilla holds one element per point of weight.
     private static int countIn(StructurePool pool, Identifier id) {
         int copies = 0;
-        for (StructurePoolElement element : pool.elements) {
+        for (StructurePoolElement element : ((StructurePoolAccessor) pool).ddv$elements()) {
             if (!(element instanceof SinglePoolElement single)) {
                 continue;
             }
             // An element built from a template instead of an id (another mod's) has no id.
-            if (single.location.left().filter(id::equals).isPresent()) {
+            if (((SinglePoolElementAccessor) single).ddv$location().left().filter(id::equals).isPresent()) {
                 copies++;
             }
         }
         return copies;
     }
-
-    // ---------------------------------------------------------------- shared
 
     /// @param optional true for an override, which keeps the overridden profession's texture
     private static void texture(Report report, Optional<Identifier> identifier, Optional<String> file,
@@ -854,6 +843,7 @@ public final class WhyCommand {
             long size = Files.size(png);
             return size > LookSync.MAX_PNG_BYTES ? OptionalLong.of(size) : OptionalLong.empty();
         } catch (IOException e) {
+            DataDrivenVillagers.LOGGER.debug("Could not read the size of {}", png, e);
             return OptionalLong.empty();
         }
     }
@@ -864,7 +854,7 @@ public final class WhyCommand {
 
         Optional<String> profession = ProfessionRegistry.errors().stream()
                 .filter(error -> error.file().equalsIgnoreCase(file))
-                .map(ProfessionRegistry.LoadError::reason)
+                .map(LoadError::reason)
                 .findFirst();
         if (profession.isPresent()) {
             return rejected(source, asked, "profession file, rejected", profession.get());
@@ -872,7 +862,7 @@ public final class WhyCommand {
 
         Optional<String> type = TypeRegistry.errors().stream()
                 .filter(error -> error.file().equalsIgnoreCase(file))
-                .map(TypeRegistry.LoadError::reason)
+                .map(LoadError::reason)
                 .findFirst();
         if (type.isPresent()) {
             return rejected(source, asked, "villager type file, rejected", type.get());
@@ -880,7 +870,7 @@ public final class WhyCommand {
 
         Optional<String> structure = StructureRegistry.errors().stream()
                 .filter(error -> error.file().equalsIgnoreCase(file))
-                .map(StructureRegistry.LoadError::reason)
+                .map(LoadError::reason)
                 .findFirst();
         if (structure.isPresent()) {
             return rejected(source, asked, "structure file, rejected", structure.get());

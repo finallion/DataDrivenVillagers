@@ -3,14 +3,7 @@ plugins {
 }
 
 loom {
-	accessWidenerPath = project(":common").loom.accessWidenerPath
-
 	forge {
-		// Forge has no access wideners. Loom converts ours into a transformer, which is why the
-		// widener stays the single place to declare a widened member.
-		convertAccessWideners = true
-		extraAccessWideners.add loom.accessWidenerPath.get().asFile.name
-
 		// Forge reads mixin configs from the jar manifest, not from mods.toml. Without this line not
 		// a single mixin applies, silently.
 		mixinConfig "datadrivenvillagers-common.mixins.json", "datadrivenvillagers-forge.mixins.json"

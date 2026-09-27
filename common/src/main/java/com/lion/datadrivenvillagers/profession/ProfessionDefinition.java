@@ -53,6 +53,11 @@ public record ProfessionDefinition(
         return overrides.isPresent();
     }
 
+    /// An override's own additions, or the base profession's full list.
+    public List<Identifier> ownBlocks() {
+        return isOverride() ? addWorkstations : workstations;
+    }
+
     /// Built from {@link #id}, not {@link #target()}, so an override's texture stays in our namespace.
     @Override
     public Identifier vanillaTextureId(String entityType) {

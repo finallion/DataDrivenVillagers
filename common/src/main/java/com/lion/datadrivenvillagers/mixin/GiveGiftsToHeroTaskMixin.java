@@ -10,6 +10,7 @@ import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.util.Identifier;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.Optional;
@@ -34,6 +35,7 @@ public abstract class GiveGiftsToHeroTaskMixin {
         return gift.isPresent() ? gift.get() : original;
     }
 
+    @Unique
     private static Optional<Identifier> datadrivenvillagers$giftId(VillagerEntity villager) {
         return ProfessionBehaviours.of(villager).flatMap(ProfessionDefinition::gift);
     }

@@ -1,5 +1,6 @@
 package com.lion.datadrivenvillagers.command;
 
+import com.lion.datadrivenvillagers.mixin.PointOfInterestTypesAccessor;
 import com.lion.datadrivenvillagers.platform.JobSiteStates;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 
@@ -19,7 +20,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.poi.PointOfInterestType;
-import net.minecraft.world.poi.PointOfInterestTypes;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -139,6 +139,6 @@ public final class BlocksCommand {
         if (block.isEmpty()) {
             return Optional.of("no such block");
         }
-        return ProfessionLoader.existingOwner(PointOfInterestTypes.getStatesOfBlock(block.get()));
+        return ProfessionLoader.existingOwner(PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get()));
     }
 }

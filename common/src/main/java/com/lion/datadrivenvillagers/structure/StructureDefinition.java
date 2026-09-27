@@ -33,7 +33,7 @@ public record StructureDefinition(
             return pools;
         }
         return villages.stream()
-                .map(village -> Identifier.of("minecraft", "village/" + village + "/" + pool))
+                .map(village -> new Identifier("village/" + village + "/" + pool))
                 .toList();
     }
 
@@ -48,6 +48,6 @@ public record StructureDefinition(
     /// The template `/ddv why` inspects: the first pool's.
     public Identifier firstTemplateId() {
         List<Identifier> pools = targetPools();
-        return pools.isEmpty() ? templateId(Identifier.of("minecraft", "village/plains/houses")) : templateId(pools.get(0));
+        return pools.isEmpty() ? templateId(new Identifier("village/plains/houses")) : templateId(pools.get(0));
     }
 }

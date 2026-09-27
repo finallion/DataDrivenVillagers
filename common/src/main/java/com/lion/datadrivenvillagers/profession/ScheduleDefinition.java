@@ -12,13 +12,13 @@ public record ScheduleDefinition(String name, List<Entry> entries) {
 
     public static final String CUSTOM = "custom";
 
+    private static final int NIGHT_START = 13000;
+    private static final int NIGHT_END = 23000;
+    private static final int SAMPLE_STEP = 1000;
+
     /// @param time     tick of the day, 0 is sunrise and 12000 is sunset
     /// @param activity what the villager does from that tick until the next entry
     public record Entry(int time, ScheduleActivity activity) {
-    }
-
-    public boolean isPreset() {
-        return !CUSTOM.equals(name);
     }
 
     /// One line for `/ddv why` and the startup log.
@@ -28,9 +28,9 @@ public record ScheduleDefinition(String name, List<Entry> entries) {
                 .collect(Collectors.joining(", "));
     }
 
-    /// Night is 13000 to 23000, the stretch vanilla's sleep and mob rules treat as dark.
+    /// Night is `NIGHT_START` to `NIGHT_END`, the stretch vanilla's sleep and mob rules treat as dark.
     public boolean worksAtNight() {
-        for (int time = 13000; time < 23000; time += 1000) {
+        for (int time = NIGHT_START; time < NIGHT_END; time += SAMPLE_STEP) {
             if (activityAt(time) == ScheduleActivity.WORK) {
                 return true;
             }

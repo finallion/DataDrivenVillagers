@@ -39,7 +39,6 @@ public final class VillagerSchedules {
         return Optional.of(BUILT.computeIfAbsent(profession, id -> build(wanted.get())));
     }
 
-    /// Package private for the test, which reads the result back through vanilla's `getActivityForTime`.
     static Schedule build(ScheduleDefinition definition) {
         ScheduleBuilder builder = new ScheduleBuilder(new Schedule());
         for (ScheduleDefinition.Entry entry : definition.entries()) {

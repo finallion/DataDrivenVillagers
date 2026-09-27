@@ -6,7 +6,10 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
+import com.lion.datadrivenvillagers.JsonFolder;
+import com.lion.datadrivenvillagers.LoadError;
 import com.lion.datadrivenvillagers.ReloadOutcome;
+import com.lion.datadrivenvillagers.mixin.PointOfInterestTypesAccessor;
 import com.lion.datadrivenvillagers.platform.ConfigDirectory;
 import com.lion.datadrivenvillagers.platform.JobSiteStates;
 import com.lion.datadrivenvillagers.platform.PlatformInfo;
@@ -19,7 +22,6 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.MinecraftServer;
@@ -31,7 +33,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.village.VillagerProfession;
 import net.minecraft.world.EmptyBlockView;
 import net.minecraft.world.poi.PointOfInterestType;
-import net.minecraft.world.poi.PointOfInterestTypes;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -39,7 +40,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -48,7 +48,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 /// Reads every profession file during startup and registers a point of interest plus a villager
 /// profession for each. Three phases, because Forge hands out one RegisterEvent per registry and
@@ -110,19 +109,7 @@ public final class ProfessionLoader {
 
         ExampleProfession.writeIfFolderIsEmpty(dir);
 
-        List<Path> files;
-        try (Stream<Path> stream = Files.list(dir)) {
-            files = stream.filter(p -> p.getFileName().toString().endsWith(EXTENSION))
-                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                    .toList();
-        } catch (IOException e) {
-            DataDrivenVillagers.LOGGER.error("Could not read {}, no professions will be loaded", dir, e);
-            return;
-        }
-
-        for (Path file : files) {
-            parseOne(file, target);
-        }
+        JsonFolder.forEachFile(dir, "professions", file -> parseOne(file, target));
     }
 
     /// Phase 2: needs a complete block registry; drops definitions with a missing or claimed workstation.
@@ -134,7 +121,6 @@ public final class ProfessionLoader {
         while (iterator.hasNext()) {
             ProfessionDefinition definition = iterator.next();
             if (definition.isOverride()) {
-                // Uses an existing job site, nothing to build.
                 continue;
             }
             try {
@@ -322,7 +308,7 @@ public final class ProfessionLoader {
                     "file is gone, its blocks were given back but the profession itself stays"));
         }
 
-        for (ProfessionRegistry.LoadError error : ProfessionRegistry.errors()) {
+        for (LoadError error : ProfessionRegistry.errors()) {
             outcomes.add(ReloadOutcome.rejected(error.file(), rejectionDetail(error, kept)));
         }
 
@@ -352,9 +338,9 @@ public final class ProfessionLoader {
 
     /// Rejected files, keyed like `previous`; matched by name since a failed parse has no id.
     static Map<Identifier, ProfessionDefinition> keptDespiteRejection(
-            Map<Identifier, ProfessionDefinition> previous, List<ProfessionRegistry.LoadError> errors) {
+            Map<Identifier, ProfessionDefinition> previous, List<LoadError> errors) {
         Set<String> rejectedFiles = new LinkedHashSet<>();
-        for (ProfessionRegistry.LoadError error : errors) {
+        for (LoadError error : errors) {
             rejectedFiles.add(error.file());
         }
         Map<Identifier, ProfessionDefinition> kept = new LinkedHashMap<>();
@@ -367,7 +353,7 @@ public final class ProfessionLoader {
     }
 
     /// The rejection, plus whether an earlier version of the profession is still in effect.
-    static String rejectionDetail(ProfessionRegistry.LoadError error, Map<Identifier, ProfessionDefinition> kept) {
+    static String rejectionDetail(LoadError error, Map<Identifier, ProfessionDefinition> kept) {
         for (ProfessionDefinition definition : kept.values()) {
             if ((definition.name() + EXTENSION).equals(error.file())) {
                 return error.reason() + " - the version loaded before this reload stays in effect";
@@ -493,8 +479,8 @@ public final class ProfessionLoader {
 
     /// `blockStates()` is frozen once registered; the sensor reads the mutable POI_STATES_TO_TYPE map.
     private static String moveWorkstations(ProfessionDefinition old, ProfessionDefinition next) {
-        List<Identifier> before = old.isOverride() ? old.addWorkstations() : old.workstations();
-        List<Identifier> after = next.isOverride() ? next.addWorkstations() : next.workstations();
+        List<Identifier> before = old.ownBlocks();
+        List<Identifier> after = next.ownBlocks();
         // An override's block set is read fresh each time, so a flag-only change can still be applied here.
         boolean revisitForFlag = next.isOverride() && old.allowNaturalBlock() != next.allowNaturalBlock()
                 && after.stream().anyMatch(NaturalBlocks.IDS::contains);
@@ -502,10 +488,11 @@ public final class ProfessionLoader {
             return "";
         }
 
-        RegistryEntry<PointOfInterestType> poi = jobSiteFor(next).orElse(null);
-        if (poi == null) {
+        Optional<RegistryEntry<PointOfInterestType>> jobSite = jobSiteFor(next);
+        if (jobSite.isEmpty()) {
             return "blocks unchanged, there is no job site to move them to";
         }
+        RegistryEntry<PointOfInterestType> poi = jobSite.get();
 
         int released = 0;
         int claimed = 0;
@@ -559,7 +546,7 @@ public final class ProfessionLoader {
             return 0;
         }
         boolean removed = false;
-        for (BlockState state : PointOfInterestTypes.getStatesOfBlock(block.get())) {
+        for (BlockState state : PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get())) {
             RegistryEntry<PointOfInterestType> claimed = JobSiteStates.get(state);
             if (claimed != null && claimed.value() == poi.value()) {
                 JobSiteStates.remove(state);
@@ -572,25 +559,22 @@ public final class ProfessionLoader {
     private static boolean claimBlock(Identifier blockId, RegistryEntry<PointOfInterestType> poi,
                                       boolean allowNaturalBlock) {
         Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
-        if (block.isEmpty() || unsuitableWorkstation(block.get(), allowNaturalBlock).isPresent()) {
+        if (block.isEmpty() || !check(block.get(), allowNaturalBlock, null, Map.of()).usable()) {
             return false;
         }
-        Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
-        if (existingOwner(states).isPresent()) {
-            return false;
-        }
-        for (BlockState state : states) {
+        for (BlockState state : PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get())) {
             JobSiteStates.put(state, poi);
         }
         return true;
     }
 
     private static void releaseWorkstations(ProfessionDefinition gone) {
-        RegistryEntry<PointOfInterestType> poi = jobSiteFor(gone).orElse(null);
-        if (poi == null) {
+        Optional<RegistryEntry<PointOfInterestType>> jobSite = jobSiteFor(gone);
+        if (jobSite.isEmpty()) {
             return;
         }
-        for (Identifier blockId : gone.isOverride() ? gone.addWorkstations() : gone.workstations()) {
+        RegistryEntry<PointOfInterestType> poi = jobSite.get();
+        for (Identifier blockId : gone.ownBlocks()) {
             releaseBlock(blockId, poi);
         }
     }
@@ -663,14 +647,11 @@ public final class ProfessionLoader {
     /// Runs at server start. Restores POI states a registry refresh dropped, then retries rejected overrides.
     public static void reapplyAtServerStart() {
         for (ProfessionDefinition definition : ProfessionRegistry.ordered()) {
-            RegistryEntry<PointOfInterestType> jobSite = jobSiteFor(definition).orElse(null);
-            if (jobSite == null) {
+            Optional<RegistryEntry<PointOfInterestType>> jobSite = jobSiteFor(definition);
+            if (jobSite.isEmpty()) {
                 continue;
             }
-            List<Identifier> blocks = definition.isOverride()
-                    ? definition.addWorkstations()
-                    : definition.workstations();
-            reclaim(definition.target(), blocks, jobSite, definition.allowNaturalBlock());
+            reclaim(definition.target(), definition.ownBlocks(), jobSite.get(), definition.allowNaturalBlock());
         }
         retryRejectedOverrides();
         for (String warning : naturalBlockWarnings()) {
@@ -682,10 +663,7 @@ public final class ProfessionLoader {
     public static List<String> naturalBlockWarnings() {
         List<String> warnings = new ArrayList<>();
         for (ProfessionDefinition definition : ProfessionRegistry.ordered()) {
-            List<Identifier> blockIds = definition.isOverride()
-                    ? definition.addWorkstations()
-                    : definition.workstations();
-            for (Identifier blockId : blockIds) {
+            for (Identifier blockId : definition.ownBlocks()) {
                 Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
                 if (block.isEmpty()) {
                     continue;
@@ -696,7 +674,7 @@ public final class ProfessionLoader {
                     continue;
                 }
                 // The fixed lists cover vanilla; the tags only catch bulk-placed blocks of other mods.
-                if (!definition.allowNaturalBlock() && !blockId.getNamespace().equals("minecraft")
+                if (!definition.allowNaturalBlock() && !blockId.getNamespace().equals(Identifier.DEFAULT_NAMESPACE)
                         && generatesInBulk(block.get().getDefaultState())) {
                     warnings.add(definition.target() + " claims " + blockId + ", which world generation "
                             + "likely places in bulk; set \"allow_natural_block\": true if that is intended");
@@ -716,27 +694,18 @@ public final class ProfessionLoader {
     /// Fills only states a registry refresh left empty, leaving an already-claimed state as it is.
     private static void reclaim(Identifier owner, List<Identifier> blockIds,
                                 RegistryEntry<PointOfInterestType> jobSite, boolean allowNaturalBlock) {
+        String jobSiteId = jobSite.getKey().map(key -> key.getValue().toString()).orElse(null);
         int restored = 0;
         for (Identifier blockId : blockIds) {
             Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
-            if (block.isEmpty() || unsuitableWorkstation(block.get(), allowNaturalBlock).isPresent()) {
+            if (block.isEmpty()) {
                 continue;
             }
-            Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
-            boolean ownedByAnother = false;
-            boolean missing = false;
-            for (BlockState state : states) {
-                RegistryEntry<PointOfInterestType> current = JobSiteStates.get(state);
-                if (current == null) {
-                    missing = true;
-                } else if (current.value() != jobSite.value()) {
-                    ownedByAnother = true;
-                }
-            }
-            if (ownedByAnother || !missing) {
+            BlockVerdict verdict = check(block.get(), allowNaturalBlock, jobSiteId, Map.of());
+            if (!verdict.usable() || !verdict.anyStateFree()) {
                 continue;
             }
-            for (BlockState state : states) {
+            for (BlockState state : PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get())) {
                 if (JobSiteStates.get(state) == null) {
                     JobSiteStates.put(state, jobSite);
                 }
@@ -831,19 +800,16 @@ public final class ProfessionLoader {
                 continue;
             }
 
-            Optional<String> reason = unsuitableWorkstation(block.get(), definition.allowNaturalBlock());
-            if (reason.isPresent()) {
-                unsuitable.add(reason.get());
+            BlockVerdict verdict = check(block.get(), definition.allowNaturalBlock(), null, Map.of());
+            if (verdict.unsuitableReason().isPresent()) {
+                unsuitable.add(verdict.unsuitableReason().get());
                 continue;
             }
-
-            Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
-            Optional<String> owner = existingOwner(states);
-            if (owner.isPresent()) {
-                taken.add(blockId + " (already " + owner.get() + ")");
+            if (verdict.ownerId().isPresent()) {
+                taken.add(blockId + " (already " + verdict.ownerId().get() + ")");
                 continue;
             }
-            for (BlockState state : states) {
+            for (BlockState state : PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get())) {
                 JobSiteStates.put(state, jobSite);
             }
             added++;
@@ -920,19 +886,16 @@ public final class ProfessionLoader {
                 continue;
             }
 
-            Optional<String> reason = unsuitableWorkstation(block.get(), definition.allowNaturalBlock());
-            if (reason.isPresent()) {
-                unsuitable.add(reason.get());
+            BlockVerdict verdict = check(block.get(), definition.allowNaturalBlock(), null, claimedByEarlierFiles);
+            if (verdict.unsuitableReason().isPresent()) {
+                unsuitable.add(verdict.unsuitableReason().get());
                 continue;
             }
-
-            Set<BlockState> blockStates = PointOfInterestTypes.getStatesOfBlock(block.get());
-            Optional<String> owner = ownerOf(blockStates, claimedByEarlierFiles);
-            if (owner.isPresent()) {
-                taken.add(blockId + " (already " + owner.get() + ")");
+            if (verdict.ownerId().isPresent()) {
+                taken.add(blockId + " (already " + verdict.ownerId().get() + ")");
                 continue;
             }
-            states.addAll(blockStates);
+            states.addAll(PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get()));
         }
 
         if (states.isEmpty()) {
@@ -979,15 +942,43 @@ public final class ProfessionLoader {
         return Optional.empty();
     }
 
-    /// Checks a same-pass claim first, since POI_STATES_TO_TYPE gets an earlier file's states only once it registers.
-    private static Optional<String> ownerOf(Set<BlockState> states, Map<BlockState, Identifier> claimedByEarlierFiles) {
+    /// Whether a block is usable as a workstation, and who owns it if not; the one check every claim,
+    /// reclaim and validation path shares. `ownId` exempts a block this profession already owns.
+    /// `pendingClaims` are claims made earlier in the same load pass, before they reach POI_STATES_TO_TYPE.
+    public record BlockVerdict(Optional<String> unsuitableReason, Optional<String> ownerId, boolean anyStateFree) {
+        public boolean usable() {
+            return unsuitableReason.isEmpty() && ownerId.isEmpty();
+        }
+    }
+
+    public static BlockVerdict check(Block block, boolean allowNaturalBlock, String ownId,
+                                     Map<BlockState, Identifier> pendingClaims) {
+        Optional<String> unsuitable = unsuitableWorkstation(block, allowNaturalBlock);
+        if (unsuitable.isPresent()) {
+            return new BlockVerdict(unsuitable, Optional.empty(), false);
+        }
+
+        Set<BlockState> states = PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block);
         for (BlockState state : states) {
-            Identifier claimed = claimedByEarlierFiles.get(state);
+            Identifier claimed = pendingClaims.get(state);
             if (claimed != null) {
-                return Optional.of(claimed.toString());
+                return new BlockVerdict(Optional.empty(), Optional.of(claimed.toString()), false);
             }
         }
-        return existingOwner(states);
+
+        boolean anyFree = false;
+        for (BlockState state : states) {
+            if (JobSiteStates.get(state) == null) {
+                anyFree = true;
+                break;
+            }
+        }
+
+        Optional<String> owner = existingOwner(states);
+        if (owner.isPresent() && (ownId == null || !owner.get().equals(ownId))) {
+            return new BlockVerdict(Optional.empty(), owner, anyFree);
+        }
+        return new BlockVerdict(Optional.empty(), Optional.empty(), anyFree);
     }
 
     public static boolean isNaturalBlock(Identifier blockId) {
@@ -1028,14 +1019,13 @@ public final class ProfessionLoader {
                 missing.add(blockId);
                 continue;
             }
-            Optional<String> reason = unsuitableWorkstation(block.get(), definition.allowNaturalBlock());
-            if (reason.isPresent()) {
-                unsuitable.add(reason.get());
+            BlockVerdict verdict = check(block.get(), definition.allowNaturalBlock(), own, Map.of());
+            if (verdict.unsuitableReason().isPresent()) {
+                unsuitable.add(verdict.unsuitableReason().get());
                 continue;
             }
-            Optional<String> owner = existingOwner(PointOfInterestTypes.getStatesOfBlock(block.get()));
-            if (owner.isPresent() && !owner.get().equals(own)) {
-                taken.add(blockId + " (already " + owner.get() + ")");
+            if (verdict.ownerId().isPresent()) {
+                taken.add(blockId + " (already " + verdict.ownerId().get() + ")");
                 continue;
             }
             usable++;

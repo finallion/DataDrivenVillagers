@@ -1,15 +1,14 @@
 package com.lion.datadrivenvillagers.client.editor;
 
+import com.lion.datadrivenvillagers.mixin.PointOfInterestTypesAccessor;
 import com.lion.datadrivenvillagers.profession.Attack;
 import com.lion.datadrivenvillagers.profession.EntityRange;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 import com.lion.datadrivenvillagers.profession.ProfessionParser;
 
-import net.minecraft.block.Block;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
-import net.minecraft.world.poi.PointOfInterestTypes;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,9 +24,7 @@ public final class EditorFields {
         TEXT, LIST, NUMBER, RANGES
     }
 
-    /// Where the suggestions under a box come from. The client holds all of these registries, so no
-    /// packet is needed to answer "which blocks are there" - and the loader's own question, which
-    /// blocks are still free, needs a map this mod fills on both sides.
+    /// Where the suggestions under a box come from.
     public enum Source {
         NONE, FREE_BLOCK, BLOCK, ENTITY, ITEM, SOUND, VILLAGER_TYPE, PROFESSION
     }
@@ -38,19 +35,14 @@ public final class EditorFields {
     /// @param source      what the suggestions under the box are drawn from
     /// @param placeholder greyed out in an empty box: the fallback as prose, or an example after e.g.
     /// @param help        shown on hovering the label, first line saying what the field does
-    public record Spec(String key, String label, Shape shape, Source source, String placeholder,
-                       String help, boolean frozen) {
-
-        Spec(String key, String label, Shape shape, Source source, String placeholder, String help) {
-            this(key, label, shape, source, placeholder, help, false);
-        }
+    public record Spec(String key, String label, Shape shape, Source source, String placeholder, String help) {
 
         /// Baked into `VillagerProfession`/`PointOfInterestType` at registration; a reload cannot reach them.
         Spec needsRestart() {
             return new Spec(key, label + " *", shape, source, placeholder,
                     help + "\n\nChanging this on a profession that already exists needs a restart: it "
                             + "was handed to the game when the profession was registered, and a reload "
-                            + "cannot reach it.", true);
+                            + "cannot reach it.");
         }
     }
 
@@ -184,7 +176,8 @@ public final class EditorFields {
             An entry runs until the next one starts, and the last carries over midnight into
             the first. 0 is sunrise, 12000 sunset.""");
 
-    // ---- suggestions ----------------------------------------------------------------------------
+    private static final int MAX_SCANNED_SUGGESTIONS = 40;
+    private static final int MAX_SHOWN_SUGGESTIONS = 7;
 
     /// Matches the path too, since `calcite` is typed far more often than `minecraft:calcite`.
     public static List<String> suggest(Source source, String typed) {
@@ -199,12 +192,12 @@ public final class EditorFields {
             } else if (full.contains(needle)) {
                 contains.add(full);
             }
-            if (starts.size() >= 40) {
+            if (starts.size() >= MAX_SCANNED_SUGGESTIONS) {
                 break;
             }
         }
         starts.addAll(contains);
-        return starts.size() > 7 ? starts.subList(0, 7) : starts;
+        return starts.size() > MAX_SHOWN_SUGGESTIONS ? starts.subList(0, MAX_SHOWN_SUGGESTIONS) : starts;
     }
 
     /// A list field holds several values, and only the one being typed is being completed.
@@ -230,11 +223,12 @@ public final class EditorFields {
         if (freeBlocks == null) {
             List<Identifier> free = new ArrayList<>();
             for (Identifier id : Registries.BLOCK.getIds()) {
-                Block block = Registries.BLOCK.getOrEmpty(id).orElse(null);
-                if (block != null && !ProfessionLoader.isNaturalBlock(id) && ProfessionLoader.existingOwner(
-                        PointOfInterestTypes.getStatesOfBlock(block)).isEmpty()) {
-                    free.add(id);
-                }
+                Registries.BLOCK.getOrEmpty(id).ifPresent(block -> {
+                    if (!ProfessionLoader.isNaturalBlock(id) && ProfessionLoader.existingOwner(
+                            PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block)).isEmpty()) {
+                        free.add(id);
+                    }
+                });
             }
             freeBlocks = free;
         }
@@ -248,7 +242,7 @@ public final class EditorFields {
             return Optional.empty();
         }
         return Registries.BLOCK.getOrEmpty(id)
-                .flatMap(block -> ProfessionLoader.existingOwner(PointOfInterestTypes.getStatesOfBlock(block)));
+                .flatMap(block -> ProfessionLoader.existingOwner(PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block)));
     }
 
     /// True for an id absent from the block registry, so the screen can flag it before save does.

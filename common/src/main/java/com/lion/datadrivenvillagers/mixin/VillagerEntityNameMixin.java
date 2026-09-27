@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.At;
 /// `display_name`. `getDefaultName` builds `entity.minecraft.villager.<path>` from the profession's
 /// registry id and translates it without a fallback, so an untranslated key would render raw.
 @Mixin(VillagerEntity.class)
-public abstract class VillagerNameMixin {
+public abstract class VillagerEntityNameMixin {
 
     @ModifyReturnValue(method = "getDefaultName", at = @At("RETURN"))
     private Text datadrivenvillagers$displayName(Text original) {

@@ -26,7 +26,6 @@ public final class TypeParser {
         List<Identifier> biomes = new ArrayList<>();
         List<Identifier> biomeTags = new ArrayList<>();
         for (String raw : JsonFields.strings(root, "biomes")) {
-            // # marks a tag, as in datapacks.
             if (raw.startsWith(TAG_PREFIX)) {
                 biomeTags.add(JsonFields.identifier(raw.substring(TAG_PREFIX.length())));
             } else {

@@ -33,8 +33,7 @@ versionRange = "[1.20.1,1.20.2)"
 ordering = "NONE"
 side = "BOTH"
 
-# Professions work without it, they just have no trades. Load after it so a trade file that names one
-# of our professions finds it registered.
+# Optional: professions work without it, only without trades. Loaded after it so it sees our professions.
 [[dependencies.datadrivenvillagers]]
 modId = "villagertradingplus"
 mandatory = false

@@ -1,6 +1,7 @@
 package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.ConfigFiles;
+import com.lion.datadrivenvillagers.LoadError;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 import com.lion.datadrivenvillagers.profession.ProfessionRegistry;
@@ -13,7 +14,6 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.command.CommandManager;
@@ -26,9 +26,6 @@ import net.minecraft.village.VillagerProfession;
 import java.util.List;
 
 /// Answers the two questions a pack author actually has: what loaded, and why did my file not.
-///
-/// The tree itself lives here; every branch worth more than a few lines has a class of its own, and
-/// this one keeps `list` and `errors` because they are one loop over three registries each.
 public final class DataDrivenVillagersCommand {
 
     private DataDrivenVillagersCommand() { }
@@ -46,9 +43,11 @@ public final class DataDrivenVillagersCommand {
             new String[] {"/ddv doctor", "every report into doctor.txt, to paste into an issue"},
             new String[] {"/ddv help", "this list"});
 
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess access) {
+    private static final int READ_PERMISSION_LEVEL = 2;
+
+    public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(CommandManager.literal("ddv")
-                .requires(source -> source.hasPermissionLevel(2))
+                .requires(source -> source.hasPermissionLevel(READ_PERMISSION_LEVEL))
                 .executes(Framed.framed(DataDrivenVillagersCommand::help))
                 .then(CommandManager.literal("help").executes(Framed.framed(DataDrivenVillagersCommand::help)))
                 .then(CommandManager.literal("list").executes(Framed.framed(DataDrivenVillagersCommand::list)))
@@ -137,13 +136,13 @@ public final class DataDrivenVillagersCommand {
         ServerCommandSource source = context.getSource();
 
         int shown = 0;
-        for (ProfessionRegistry.LoadError error : ProfessionRegistry.errors()) {
+        for (LoadError error : ProfessionRegistry.errors()) {
             shown += report(source, "professions", error.file(), error.reason());
         }
-        for (TypeRegistry.LoadError error : TypeRegistry.errors()) {
+        for (LoadError error : TypeRegistry.errors()) {
             shown += report(source, "types", error.file(), error.reason());
         }
-        for (StructureRegistry.LoadError error : StructureRegistry.errors()) {
+        for (LoadError error : StructureRegistry.errors()) {
             shown += report(source, "structures", error.file(), error.reason());
         }
 

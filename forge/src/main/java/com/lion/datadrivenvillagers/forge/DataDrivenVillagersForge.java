@@ -77,6 +77,6 @@ public class DataDrivenVillagersForge {
     }
 
     private static void onRegisterCommands(RegisterCommandsEvent event) {
-        DataDrivenVillagersCommand.register(event.getDispatcher(), event.getBuildContext());
+        DataDrivenVillagersCommand.register(event.getDispatcher());
     }
 }

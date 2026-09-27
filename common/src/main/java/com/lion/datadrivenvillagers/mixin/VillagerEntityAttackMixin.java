@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.At;
 /// entity creation. The damage value is set per villager in {@link VillagerEntityMixin}.
 /// `createVillagerAttributes` is vanilla code, so this covers Forge's attribute registry as well.
 @Mixin(VillagerEntity.class)
-public abstract class VillagerAttackMixin {
+public abstract class VillagerEntityAttackMixin {
 
     @ModifyExpressionValue(method = "createBrainProfile",
             at = @At(value = "FIELD", target = "Lnet/minecraft/entity/passive/VillagerEntity;MEMORY_MODULES:Lcom/google/common/collect/ImmutableList;"))

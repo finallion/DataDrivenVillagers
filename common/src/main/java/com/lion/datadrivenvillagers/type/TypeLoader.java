@@ -5,6 +5,8 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
+import com.lion.datadrivenvillagers.JsonFolder;
+import com.lion.datadrivenvillagers.LoadError;
 import com.lion.datadrivenvillagers.ReloadOutcome;
 import com.lion.datadrivenvillagers.mixin.VillagerTypeAccessor;
 import com.lion.datadrivenvillagers.platform.ConfigDirectory;
@@ -26,7 +28,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -34,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /// Reads every villager type file during startup, registers the type and claims its biomes in
 /// `VillagerType.BIOME_TO_TYPE`. Named biomes are claimed at registration; tag members only exist once
@@ -84,19 +84,7 @@ public final class TypeLoader {
     }
 
     private static void parseInto(Path dir, List<TypeDefinition> target) {
-        List<Path> files;
-        try (Stream<Path> stream = Files.list(dir)) {
-            files = stream.filter(p -> p.getFileName().toString().endsWith(EXTENSION))
-                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                    .toList();
-        } catch (IOException e) {
-            DataDrivenVillagers.LOGGER.error("Could not read {}, no villager types will be loaded", dir, e);
-            return;
-        }
-
-        for (Path file : files) {
-            parseOne(file, target);
-        }
+        JsonFolder.forEachFile(dir, "villager types", file -> parseOne(file, target));
     }
 
     /// Registers the types and claims the biomes named outright; tags come later through `claimTags`.
@@ -106,7 +94,7 @@ public final class TypeLoader {
         for (TypeDefinition definition : PARSED) {
             try {
                 VillagerType type = RegistryHelper.registerVillagerType(definition.id(),
-                        new VillagerType(definition.name()));
+                        VillagerTypeAccessor.ddv$create(definition.name()));
                 TypeRegistry.add(definition);
                 claimNamedBiomes(claims, definition, type);
             } catch (Exception e) {
@@ -228,7 +216,7 @@ public final class TypeLoader {
         claimTags(claims, biomes);
         claims.publish();
 
-        for (TypeRegistry.LoadError error : TypeRegistry.errors()) {
+        for (LoadError error : TypeRegistry.errors()) {
             outcomes.add(ReloadOutcome.rejected(error.file(), error.reason()));
         }
 
@@ -319,7 +307,7 @@ public final class TypeLoader {
         }
 
         static Claims ofCurrent() {
-            return new Claims(new HashMap<>(VillagerType.BIOME_TO_TYPE), new HashMap<>(ownClaims),
+            return new Claims(new HashMap<>(VillagerTypeAccessor.ddv$biomeToType()), new HashMap<>(ownClaims),
                     new HashMap<>(namedClaims));
         }
 

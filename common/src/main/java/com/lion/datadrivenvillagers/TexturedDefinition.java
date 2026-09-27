@@ -8,7 +8,6 @@ import java.util.Optional;
 /// package: definitions are parsed on the dedicated server too.
 public interface TexturedDefinition {
 
-    String VILLAGER = "villager";
     String ZOMBIE_VILLAGER = "zombie_villager";
 
     Identifier id();
