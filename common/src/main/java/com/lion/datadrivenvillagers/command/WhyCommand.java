@@ -31,7 +31,6 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.IdentifierArgumentType;
@@ -72,7 +71,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.Set;
 
 /// `/ddv why <name>`: walks the chain behind a profession, type or structure and names the link that
 /// broke. Every check reads the runtime state vanilla reads (registries, POI_STATES_TO_TYPE, tags,
