@@ -41,6 +41,12 @@ class DefinitionParseExceptionTest {
     }
 
     @Test
+    void sanitizeCleansAFileNameTheSameWay() {
+        assertEquals("bad  name.json", DefinitionParseException.sanitize("bad\r\nname.json"));
+        assertEquals("evil cred.json", DefinitionParseException.sanitize("evil§cred.json"));
+    }
+
+    @Test
     void theLongestExistingParserMessageStaysComplete() {
         String message = "\"work_behaviour\": \"farm\" cannot be given to an override: "
                 + "datadrivenvillagers:example_profession does not know farmland as a secondary job site, "

@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -87,6 +88,23 @@ class ConfigFilesTest {
 
         try (Stream<Path> left = Files.list(folder)) {
             assertEquals(List.of("baker.json"), left.map(p -> p.getFileName().toString()).sorted().toList());
+        }
+    }
+
+    @Test
+    void writesThroughAStreamAndCleansUpOnFailure(@TempDir Path folder) throws IOException {
+        Path file = folder.resolve("village.nbt");
+
+        ConfigFiles.writeAtomically(file, stream -> stream.write(new byte[] {1, 2, 3}));
+        assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(file));
+
+        assertThrows(IllegalStateException.class, () -> ConfigFiles.writeAtomically(file, stream -> {
+            throw new IllegalStateException("boom");
+        }));
+        assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(file));
+
+        try (Stream<Path> left = Files.list(folder)) {
+            assertEquals(List.of("village.nbt"), left.map(p -> p.getFileName().toString()).sorted().toList());
         }
     }
 

@@ -31,8 +31,8 @@ public class DefinitionParseException extends RuntimeException {
         return sanitize(stripped);
     }
 
-    /// A raw json value can hold anything; this keeps it from faking a log line or a chat colour code.
-    private static String sanitize(String text) {
+    /// Removes control characters and the section sign, so the text cannot fake a log line or a colour code.
+    public static String sanitize(String text) {
         int limit = Math.min(text.length(), MAX_LENGTH);
         StringBuilder out = new StringBuilder(limit);
         for (int i = 0; i < limit; i++) {

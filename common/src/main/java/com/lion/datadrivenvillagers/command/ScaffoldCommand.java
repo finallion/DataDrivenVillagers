@@ -131,7 +131,7 @@ public final class ScaffoldCommand {
             kept(source, nbt);
         } else {
             try {
-                NbtIo.writeCompressed(plot.get(), nbt.toFile());
+                ConfigFiles.writeAtomically(nbt, stream -> NbtIo.writeCompressed(plot.get(), stream));
             } catch (IOException e) {
                 DataDrivenVillagers.LOGGER.error("Could not write {}", nbt, e);
                 source.sendError(Text.literal("Could not write " + ConfigFiles.relative(nbt)

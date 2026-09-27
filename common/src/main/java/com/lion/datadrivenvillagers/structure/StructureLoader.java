@@ -262,9 +262,10 @@ public final class StructureLoader {
             }
             target.add(definition);
         } catch (Exception e) {
+            String safeName = DefinitionParseException.sanitize(fileName);
             String reason = DefinitionParseException.readableReason(e);
-            StructureRegistry.addError(fileName, reason);
-            DataDrivenVillagers.LOGGER.error("Skipping structure file {}: {}", fileName, reason);
+            StructureRegistry.addError(safeName, reason);
+            DataDrivenVillagers.LOGGER.error("Skipping structure file {}: {}", safeName, reason);
         }
     }
 }
