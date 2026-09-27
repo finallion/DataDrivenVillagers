@@ -20,11 +20,14 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.ParentElement;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.CyclingButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.widget.TextWidget;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 
@@ -51,9 +54,8 @@ public final class ProfessionEditorScreen extends Screen {
     private static final int ROW_HEIGHT = 20;
     private static final int ROW_STEP = ROW_HEIGHT + 4;
     private static final int ROWS_TOP = 70;
-    private static final int SCROLL_STEP = 12;
-    private static final int SCROLLBAR = 10;
-    private static final int SCROLLBAR_WIDTH = 6;
+    /// Room the row list leaves on its right edge for the scrollbar it draws itself.
+    private static final int ROW_GUTTER = 10;
     private static final int SUGGESTION_HEIGHT = 12;
     /// How many wrapped report lines get room; overflow is cut by the scissor in render, never painted over rows.
     private static final int STATUS_LINES = 5;
@@ -66,10 +68,6 @@ public final class ProfessionEditorScreen extends Screen {
     private static final int BAD = 0xFFFF6B6B;
     private static final int FIELD_OK = 0xFFE0E0E0;
     private static final int SUGGESTION_BACKGROUND = 0xF0100010;
-    private static final int PANEL = 0x70000000;
-    private static final int BAR_TRACK = 0xFF000000;
-    private static final int BAR_THUMB = 0xFF808080;
-    private static final int BAR_THUMB_LIGHT = 0xFFC0C0C0;
 
     private enum Tab {
         BASICS("Basics"), LOOK("Look"), WORK("Work"), COMBAT("Combat"), PLAN("Day plan");
@@ -102,31 +100,15 @@ public final class ProfessionEditorScreen extends Screen {
         }
     }
 
-    /// One field name on the left, and the rectangle that has to be hovered to read what it means.
-    private record Row(String label, String help, int x, int baseY, int width) {
-
-        boolean under(int mouseX, int mouseY, int y) {
-            return mouseX >= x && mouseX <= x + width && mouseY >= y - 6 && mouseY <= y + ROW_HEIGHT - 6;
-        }
-    }
-
-    private record Placed(ClickableWidget widget, int baseY) {
-    }
-
     private final JsonObject root;
     private final boolean isNew;
     private String fileName;
 
     private Tab tab = Tab.BASICS;
-    private final List<Row> rows = new ArrayList<>();
-    private final List<Placed> placed = new ArrayList<>();
-    private int scroll;
-    private int maxScroll;
-    private boolean draggingBar;
+    private EditorRowList rowList;
     private int left;
     private int content;
     private final Map<TextFieldWidget, Source> sources = new HashMap<>();
-    private final Map<String, String> problems = new HashMap<>();
 
     private FearMode fearMode;
     private PlanMode planMode;
@@ -184,11 +166,8 @@ public final class ProfessionEditorScreen extends Screen {
 
     @Override
     protected void init() {
-        rows.clear();
-        placed.clear();
         sources.clear();
         suggestions = List.of();
-        draggingBar = false;
         content = Math.min(MAX_CONTENT, width - 40);
         left = (width - content) / 2;
 
@@ -201,24 +180,25 @@ public final class ProfessionEditorScreen extends Screen {
             button.active = value != tab;
         }
 
-        int top = ROWS_TOP;
-        int step = ROW_STEP;
-        int row = 0;
+        rowList = new EditorRowList(MinecraftClient.getInstance(), content, rowsBottom() - ROWS_TOP, ROWS_TOP,
+                ROW_STEP, ROW_GUTTER);
+        rowList.setX(left);
+
         switch (tab) {
             case BASICS -> {
                 // Lower-cased live, not only on save, so the author sees the real filename right away.
-                TextFieldWidget name = box(left, content, top + step * row++, EditorFields.BASICS.get(0),
-                        fileName, value -> fileName = value.trim().toLowerCase(Locale.ROOT));
+                TextFieldWidget name = box(EditorFields.BASICS.get(0), fileName,
+                        value -> fileName = value.trim().toLowerCase(Locale.ROOT));
                 name.setTextPredicate(typed -> typed.equals(typed.toLowerCase(Locale.ROOT)));
                 name.setEditable(isNew);
                 for (int i = 1; i < EditorFields.BASICS.size(); i++) {
-                    field(left, content, top + step * row++, EditorFields.BASICS.get(i));
+                    field(EditorFields.BASICS.get(i));
                 }
             }
             case LOOK -> {
-                field(left, content, top + step * row++, EditorFields.LOOK.get(0));
-                field(left, content, top + step * row++, EditorFields.LOOK.get(1));
-                cycle(left, content, top + step * row++, "Hat", HatKind.values(),
+                field(EditorFields.LOOK.get(0));
+                field(EditorFields.LOOK.get(1));
+                cycle("Hat", HatKind.values(),
                         pick(HatKind.class, JsonEdit.text(root, "hat"), HatKind.NONE),
                         kind -> Text.literal(kind.name().toLowerCase(Locale.ROOT)),
                         kind -> JsonEdit.setText(root, "hat", kind.name().toLowerCase(Locale.ROOT)),
@@ -229,11 +209,11 @@ public final class ProfessionEditorScreen extends Screen {
                           full     the type's whole head layer is switched off
                         Only desert and snow villagers have a hat of their own, so on every
                         other type the three look the same.""");
-                field(left, content, top + step * row++, EditorFields.LOOK.get(2));
-                field(left, content, top + step * row, EditorFields.LOOK.get(3));
+                field(EditorFields.LOOK.get(2));
+                field(EditorFields.LOOK.get(3));
             }
             case WORK -> {
-                cycle(left, content, top + step * row++, "Work behaviour", WorkBehaviour.values(),
+                cycle("Work behaviour", WorkBehaviour.values(),
                         pick(WorkBehaviour.class, JsonEdit.text(root, "work_behaviour"), WorkBehaviour.STATION),
                         behaviour -> Text.literal(behaviour.lower()),
                         behaviour -> JsonEdit.setText(root, "work_behaviour", behaviour.lower()),
@@ -244,15 +224,15 @@ public final class ProfessionEditorScreen extends Screen {
                         farm needs farmland within reach and its seeds under "Picks up items";
                         the parser fills both in when they are left empty.""");
                 for (Spec spec : EditorFields.WORK) {
-                    field(left, content, top + step * row++, spec);
+                    field(spec);
                 }
-                tradesButton(left, content, top + step * row);
+                tradesButton();
             }
             case COMBAT -> {
-                field(left, content, top + step * row++, EditorFields.COMBAT.get(0));
-                nested(left, content, top + step * row++, EditorFields.COMBAT.get(1));
-                nested(left, content, top + step * row++, EditorFields.COMBAT.get(2));
-                cycle(left, content, top + step * row++, "Runs from", FearMode.values(), fearMode,
+                field(EditorFields.COMBAT.get(0));
+                nested(EditorFields.COMBAT.get(1));
+                nested(EditorFields.COMBAT.get(2));
+                cycle("Runs from", FearMode.values(), fearMode,
                         mode -> Text.literal(mode.title), this::applyFearMode,
                         """
                         Decides what happens to the eleven things every villager runs from.
@@ -262,13 +242,13 @@ public final class ProfessionEditorScreen extends Screen {
                           fears nothing  runs from nothing it sees
                         The two json fields behind this cannot both be written, which is why
                         this is one button and not two boxes.""");
-                fearList = box(left, content, top + step * row, EditorFields.FEAR_LIST,
+                fearList = box(EditorFields.FEAR_LIST,
                         JsonEdit.ranges(root, fearMode == FearMode.REPLACE ? "flees_only_from" : "flees_from"),
                         this::applyFears);
                 fearList.setEditable(fearMode == FearMode.ADD || fearMode == FearMode.REPLACE);
             }
             case PLAN -> {
-                cycle(left, content, top + step * row++, "Day plan", PlanMode.values(), planMode,
+                cycle("Day plan", PlanMode.values(), planMode,
                         mode -> Text.literal(mode.title), this::applyPlanMode,
                         """
                         Decides when this villager works, meets and sleeps.
@@ -278,7 +258,7 @@ public final class ProfessionEditorScreen extends Screen {
                                         tick 14000. /time set night is 13000 and still idle
                           written out   your own entries, in the box below
                         The plan is looked up per villager, so an override can set it.""");
-                planEntries = box(left, content, top + step * row, EditorFields.PLAN_ENTRIES,
+                planEntries = box(EditorFields.PLAN_ENTRIES,
                         JsonEdit.schedule(root, "schedule"),
                         value -> {
                             if (planMode == PlanMode.CUSTOM) {
@@ -289,9 +269,7 @@ public final class ProfessionEditorScreen extends Screen {
             }
         }
 
-        maxScroll = Math.max(0, rowCount() * ROW_STEP - (rowsBottom() - ROWS_TOP));
-        scroll = Math.min(scroll, maxScroll);
-        applyScroll();
+        addDrawableChild(rowList);
 
         int buttons = height - 28;
         addDrawableChild(ButtonWidget.builder(Text.literal("Save and reload"), press -> save())
@@ -300,102 +278,32 @@ public final class ProfessionEditorScreen extends Screen {
                 .dimensions(width / 2 + 4, buttons, 150, 20).build());
     }
 
-    private int rowCount() {
-        return switch (tab) {
-            case BASICS -> EditorFields.BASICS.size();
-            case LOOK -> EditorFields.LOOK.size() + 1;
-            case WORK -> EditorFields.WORK.size() + 2;
-            case COMBAT -> EditorFields.COMBAT.size() + 2;
-            case PLAN -> 2;
-        };
-    }
-
     /// Status-line room is reserved even when empty, so the rows do not jump when a save answers.
     private int rowsBottom() {
         return height - 40 - STATUS_LINES * 10;
-    }
-
-    /// A partly visible row stays drawn and is clipped at the panel edge, so the list reads as scrollable.
-    private boolean overlaps(int y) {
-        return y + ROW_HEIGHT > ROWS_TOP && y < rowsBottom();
     }
 
     private boolean inView(int y) {
         return y >= ROWS_TOP && y + ROW_HEIGHT <= rowsBottom();
     }
 
-    private boolean inRowArea(double mouseY) {
-        return mouseY >= ROWS_TOP && mouseY < rowsBottom();
-    }
-
-    private void scrollTo(int value) {
-        scroll = Math.max(0, Math.min(maxScroll, value));
-        applyScroll();
-    }
-
-    private void applyScroll() {
-        for (Placed entry : placed) {
-            int y = entry.baseY() - scroll;
-            entry.widget().setY(y);
-            entry.widget().visible = overlaps(y);
-            if (!entry.widget().visible && getFocused() == entry.widget()) {
-                setFocused(null);
-            }
-        }
-    }
-
-    private int barX() {
-        return left + content - SCROLLBAR_WIDTH;
-    }
-
-    private int thumbHeight() {
-        int track = rowsBottom() - ROWS_TOP;
-        return Math.max(10, track * track / (track + maxScroll));
-    }
-
-    private void dragBarTo(double mouseY) {
-        int free = rowsBottom() - ROWS_TOP - thumbHeight();
-        scrollTo((int) Math.round((mouseY - ROWS_TOP - thumbHeight() / 2.0) * maxScroll / Math.max(1, free)));
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        if (maxScroll > 0 && inRowArea(mouseY)) {
-            scrollTo(scroll - (int) Math.signum(verticalAmount) * SCROLL_STEP);
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (draggingBar) {
-            dragBarTo(mouseY);
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        draggingBar = false;
-        return super.mouseReleased(mouseX, mouseY, button);
+    private int fieldWidth() {
+        return content - LABEL_WIDTH - ROW_GUTTER;
     }
 
     private void switchTo(Tab value) {
         tab = value;
-        scroll = 0;
         clearAndInit();
     }
 
-    private void field(int left, int content, int y, Spec spec) {
+    private void field(Spec spec) {
         String value = switch (spec.shape()) {
             case TEXT -> JsonEdit.text(root, spec.key());
             case LIST -> JsonEdit.list(root, spec.key());
             case NUMBER -> JsonEdit.number(root, spec.key());
             case RANGES -> JsonEdit.ranges(root, spec.key());
         };
-        box(left, content, y, spec, value, typed -> write(spec, typed));
+        box(spec, value, typed -> write(spec, typed));
     }
 
     private void write(Spec spec, String typed) {
@@ -408,9 +316,9 @@ public final class ProfessionEditorScreen extends Screen {
     }
 
     /// Removes `attack` entirely when both fields are emptied; the parser rejects a leftover `{}`.
-    private void nested(int left, int content, int y, Spec spec) {
+    private void nested(Spec spec) {
         JsonObject attack = JsonEdit.object(root, "attack");
-        box(left, content, y, spec, JsonEdit.number(attack, spec.key()), typed -> {
+        box(spec, JsonEdit.number(attack, spec.key()), typed -> {
             JsonObject current = JsonEdit.object(root, "attack");
             JsonEdit.setNumber(current, spec.key(), typed);
             if (current.keySet().isEmpty()) {
@@ -421,32 +329,31 @@ public final class ProfessionEditorScreen extends Screen {
         });
     }
 
-    /// Registers a `Row`, so hovering the label, not the box, is what shows the help tooltip.
-    private TextFieldWidget box(int left, int content, int y, Spec spec, String value,
-                                Consumer<String> onChange) {
-        rows.add(new Row(spec.label(), spec.help(), left, y + 6, LABEL_WIDTH));
+    /// Adds a label-and-box row to the list; the label carries the help text as a vanilla tooltip.
+    private TextFieldWidget box(Spec spec, String value, Consumer<String> onChange) {
+        TextWidget label = new TextWidget(LABEL_WIDTH, ROW_HEIGHT, Text.literal(spec.label()), textRenderer)
+                .alignLeft();
+        label.setTooltip(Tooltip.of(Text.literal(spec.help())));
 
-        TextFieldWidget widget = new TextFieldWidget(textRenderer, left + LABEL_WIDTH, y,
-                content - LABEL_WIDTH - SCROLLBAR, ROW_HEIGHT, Text.literal(spec.label()));
+        TextFieldWidget widget = new TextFieldWidget(textRenderer, fieldWidth(), ROW_HEIGHT, Text.literal(spec.label()));
         // The default is 32 characters, which a list of three block ids passes before it is half typed.
         widget.setMaxLength(1024);
         widget.setPlaceholder(Text.literal(spec.placeholder()));
         widget.setText(value);
         widget.setChangedListener(typed -> {
             onChange.accept(typed);
-            afterTyping(widget, spec, typed);
+            afterTyping(widget, label, spec, typed);
             // Typing is a new question, so a list that was waved away comes back.
             suggestionsClosed = false;
         });
-        addSelectableChild(widget);
-        placed.add(new Placed(widget, y));
         sources.put(widget, spec.source());
-        afterTyping(widget, spec, value);
+        rowList.addRow(new EditorRowList.Row(label, widget));
+        afterTyping(widget, label, spec, value);
         return widget;
     }
 
     /// What a box can answer on its own while it is being typed into.
-    private void afterTyping(TextFieldWidget widget, Spec spec, String typed) {
+    private void afterTyping(TextFieldWidget widget, TextWidget label, Spec spec, String typed) {
         String last = EditorFields.lastPart(typed);
         List<String> hits = EditorFields.suggest(spec.source(), typed);
 
@@ -468,45 +375,43 @@ public final class ProfessionEditorScreen extends Screen {
                     .orElse(EditorFields.unknownBlock(last) ? last + " is not a block in this game." : "");
         }
         widget.setEditableColor(problem.isEmpty() ? FIELD_OK : BAD);
-        if (problem.isEmpty()) {
-            problems.remove(spec.label());
-        } else {
-            problems.put(spec.label(), problem);
-        }
+        label.setTextColor(problem.isEmpty() ? LABEL : BAD);
+        label.setTooltip(Tooltip.of(Text.literal(problem.isEmpty() ? spec.help() : problem + "\n\n" + spec.help())));
     }
 
     /// The one action here reaching past the profession file: writes into the world's own datapacks.
-    private void tradesButton(int left, int content, int y) {
-        rows.add(new Row("Default trades", """
+    private void tradesButton() {
+        TextWidget label = new TextWidget(LABEL_WIDTH, ROW_HEIGHT, Text.literal("Default trades"), textRenderer)
+                .alignLeft();
+        label.setTooltip(Tooltip.of(Text.literal("""
                 Writes the VillagersTradingPlus starting file for this profession
                 into this world's own datapacks, filled in from the saved file -
                 the same file /ddv scaffold makes, carried to where the game
                 reads it. Save first; the trades are built from what is on disk.
                 Never overwrites: a trades file already there stays as it is.
-                The answer below names the one command still missing (/reload).""",
-                left, y + 6, LABEL_WIDTH));
-        ButtonWidget trades = addSelectableChild(ButtonWidget.builder(Text.literal("Create default trades"), press -> {
+                The answer below names the one command still missing (/reload).""")));
+        ButtonWidget trades = ButtonWidget.builder(Text.literal("Create default trades"), press -> {
             if (fileName == null || fileName.isEmpty()) {
                 status = List.of(EditorResultPayload.bad("Give the file a name first, on the Basics page."));
                 return;
             }
             status = List.of(EditorResultPayload.ok("Asking the server..."));
             ClientNetwork.send(new EditorTradesPayload(fileName));
-        }).dimensions(left + LABEL_WIDTH, y, content - LABEL_WIDTH - SCROLLBAR, ROW_HEIGHT).build());
-        placed.add(new Placed(trades, y));
+        }).dimensions(0, 0, fieldWidth(), ROW_HEIGHT).build();
+        rowList.addRow(new EditorRowList.Row(label, trades));
     }
 
-    private <T> void cycle(int left, int content, int y, String label, T[] values, T initial,
-                           Function<T, Text> name, Consumer<T> onChange, String help) {
-        rows.add(new Row(label, help, left, y + 6, LABEL_WIDTH));
+    private <T> void cycle(String label, T[] values, T initial, Function<T, Text> name, Consumer<T> onChange,
+                            String help) {
+        TextWidget labelWidget = new TextWidget(LABEL_WIDTH, ROW_HEIGHT, Text.literal(label), textRenderer)
+                .alignLeft();
+        labelWidget.setTooltip(Tooltip.of(Text.literal(help)));
         CyclingButtonWidget<T> widget = CyclingButtonWidget.builder(name)
                 .values(values)
                 .initially(initial)
                 .omitKeyText()
-                .build(left + LABEL_WIDTH, y, content - LABEL_WIDTH - SCROLLBAR, ROW_HEIGHT,
-                        Text.literal(label), (button, value) -> onChange.accept(value));
-        addSelectableChild((ClickableWidget) widget);
-        placed.add(new Placed(widget, y));
+                .build(0, 0, fieldWidth(), ROW_HEIGHT, Text.literal(label), (button, value) -> onChange.accept(value));
+        rowList.addRow(new EditorRowList.Row(labelWidget, (ClickableWidget) widget));
     }
 
     /// Never throws on a bad value; `valueOf` would, closing the editor on a typo instead of letting it be corrected.
@@ -567,14 +472,24 @@ public final class ProfessionEditorScreen extends Screen {
         clearAndInit();
     }
 
+    /// The screen's own focused child is the row list; this follows it down to the field inside.
+    private Element focusedLeaf() {
+        Element current = getFocused();
+        while (current instanceof ParentElement parent && parent.getFocused() != null) {
+            current = parent.getFocused();
+        }
+        return current;
+    }
+
     private void updateSuggestions() {
-        if (getFocused() != lastFocused) {
+        Element focused = focusedLeaf();
+        if (focused != lastFocused) {
             // A different box asks a different question, so a closed suggestion list reopens in this one.
-            lastFocused = getFocused();
+            lastFocused = focused;
             suggestionsClosed = false;
         }
         suggestions = List.of();
-        if (suggestionsClosed || !(getFocused() instanceof TextFieldWidget widget) || !widget.isFocused()
+        if (suggestionsClosed || !(focused instanceof TextFieldWidget widget) || !widget.isFocused()
                 || !inView(widget.getY())) {
             return;
         }
@@ -601,7 +516,7 @@ public final class ProfessionEditorScreen extends Screen {
                     && mouseY >= suggestionY && mouseY < suggestionY + suggestions.size() * SUGGESTION_HEIGHT;
             if (inside) {
                 int index = (int) ((mouseY - suggestionY) / SUGGESTION_HEIGHT);
-                if (getFocused() instanceof TextFieldWidget widget) {
+                if (focusedLeaf() instanceof TextFieldWidget widget) {
                     String text = widget.getText();
                     int comma = text.lastIndexOf(',');
                     widget.setText(comma < 0
@@ -614,21 +529,7 @@ public final class ProfessionEditorScreen extends Screen {
             suggestionsClosed = true;
             suggestions = List.of();
         }
-        if (maxScroll > 0 && inRowArea(mouseY) && mouseX >= barX() && mouseX < barX() + SCROLLBAR_WIDTH) {
-            draggingBar = true;
-            dragBarTo(mouseY);
-            return true;
-        }
-        if (inRowArea(mouseY)) {
-            return super.mouseClicked(mouseX, mouseY, button);
-        }
-        // The clipped part of an edge row lies outside the panel and must not take the click.
-        for (Placed entry : placed) {
-            entry.widget().visible = false;
-        }
-        boolean handled = super.mouseClicked(mouseX, mouseY, button);
-        applyScroll();
-        return handled;
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -667,26 +568,6 @@ public final class ProfessionEditorScreen extends Screen {
                 + "  -  hover a field name;  * needs a restart";
         context.drawCenteredTextWithShadow(textRenderer, subtitle, width / 2, 26, HINT);
 
-        context.fill(left - 4, ROWS_TOP - 4, left + content + 4, rowsBottom() + 4, PANEL);
-        // A text field draws its border one pixel outside its bounds.
-        context.enableScissor(0, ROWS_TOP - 1, width, rowsBottom() + 1);
-        for (Row row : rows) {
-            int y = row.baseY() - scroll;
-            if (overlaps(y - 6)) {
-                context.drawTextWithShadow(textRenderer, row.label(), row.x(), y,
-                        problems.containsKey(row.label()) ? BAD : LABEL);
-            }
-        }
-        // Outside the panel the mouse is over the clipped part of a row, which must not light up.
-        int rowMouseY = inRowArea(mouseY) ? mouseY : -1;
-        for (Placed entry : placed) {
-            if (entry.widget().visible) {
-                entry.widget().render(context, mouseX, rowMouseY, delta);
-            }
-        }
-        context.disableScissor();
-        drawScrollBar(context);
-
         if (!suggestions.isEmpty()) {
             // Field text is flushed after this fill, so only depth keeps the list on top.
             context.getMatrices().push();
@@ -715,9 +596,6 @@ public final class ProfessionEditorScreen extends Screen {
             statusY += 10;
         }
         context.disableScissor();
-
-        // Last, so it lies over the suggestions and the report rather than under them.
-        drawHelp(context, mouseX, mouseY);
     }
 
     private record Wrapped(OrderedText text, int colour) {
@@ -736,40 +614,6 @@ public final class ProfessionEditorScreen extends Screen {
             }
         }
         return lines;
-    }
-
-    private void drawScrollBar(DrawContext context) {
-        if (maxScroll <= 0) {
-            return;
-        }
-        int x = barX();
-        int thumb = thumbHeight();
-        int thumbY = ROWS_TOP + (rowsBottom() - ROWS_TOP - thumb) * scroll / maxScroll;
-        context.fill(x, ROWS_TOP, x + SCROLLBAR_WIDTH, rowsBottom(), BAR_TRACK);
-        context.fill(x, thumbY, x + SCROLLBAR_WIDTH, thumbY + thumb, BAR_THUMB);
-        context.fill(x, thumbY, x + SCROLLBAR_WIDTH - 1, thumbY + thumb - 1, BAR_THUMB_LIGHT);
-    }
-
-    private void drawHelp(DrawContext context, int mouseX, int mouseY) {
-        for (Row row : rows) {
-            int y = row.baseY() - scroll;
-            if (!inRowArea(mouseY) || !overlaps(y - 6) || !row.under(mouseX, mouseY, y)) {
-                continue;
-            }
-            // Wrapped to the room right of the cursor, where vanilla places a tooltip first.
-            int wrap = Math.max(120, width - mouseX - 24);
-            List<OrderedText> help = new ArrayList<>();
-            String problem = problems.get(row.label());
-            if (problem != null) {
-                help.addAll(textRenderer.wrapLines(Text.literal(problem), wrap));
-                help.add(OrderedText.EMPTY);
-            }
-            for (String line : row.help().split("\n")) {
-                help.addAll(line.isEmpty() ? List.of(OrderedText.EMPTY) : textRenderer.wrapLines(Text.literal(line), wrap));
-            }
-            context.drawOrderedTooltip(textRenderer, help, mouseX, mouseY);
-            return;
-        }
     }
 
     /// Judged by what villagers actually do; pausing the game would hide that.
