@@ -655,8 +655,14 @@ public final class ProfessionEditorScreen extends Screen {
             status = List.of(EditorResultPayload.bad("Give the file a name first, on the Basics page."));
             return;
         }
+        String json = GSON.toJson(root);
+        if (json.length() > EditorOpenPayload.MAX_JSON) {
+            status = List.of(EditorResultPayload.bad("Too long to save (" + json.length()
+                    + " characters, " + EditorOpenPayload.MAX_JSON + " max). Shorten the file."));
+            return;
+        }
         status = List.of(EditorResultPayload.ok("Saving..."));
-        ClientNetwork.send(new EditorSavePayload(fileName, GSON.toJson(root)));
+        ClientNetwork.send(new EditorSavePayload(fileName, json));
     }
 
     @Override

@@ -148,6 +148,13 @@ public final class EditCommand {
             }
         }
 
+        if (json.length() > EditorOpenPayload.MAX_JSON) {
+            source.sendError(Text.literal(name + EXTENSION + " is too long for the editor ("
+                    + json.length() + " characters, " + EditorOpenPayload.MAX_JSON
+                    + " max). Edit it in a text editor instead."));
+            return 0;
+        }
+
         Network.send(player, new EditorOpenPayload(name, json, state(name, existing.isPresent())));
         return 1;
     }
@@ -333,7 +340,14 @@ public final class EditCommand {
         MinecraftServer server = player.getServer();
         Path datapacks = server.getSavePath(WorldSavePath.DATAPACKS).toAbsolutePath().normalize();
         Scaffold.Piece piece = Scaffold.tradesPiece(definition);
-        Path pack = datapacks.resolve(TRADES_PACK);
+        // Same real-path check as a definition's own files, so a symlinked ddv_trades cannot leave datapacks/.
+        Optional<Path> safePack = ConfigFiles.resolveInside(datapacks, TRADES_PACK);
+        if (safePack.isEmpty()) {
+            reply(player, false, List.of(EditorResultPayload.bad(
+                    "That name does not stay inside the world's datapacks folder.")));
+            return;
+        }
+        Path pack = safePack.get();
         // The piece knows its place inside a datapack; the pack folder stands in for "datapack/".
         Path target = pack.resolve(piece.destination().substring("datapack/".length())).normalize();
         if (!target.startsWith(datapacks)) {

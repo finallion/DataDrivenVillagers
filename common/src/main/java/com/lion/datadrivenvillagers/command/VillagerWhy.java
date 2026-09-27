@@ -302,6 +302,10 @@ final class VillagerWhy {
             report.warn(what, where + ", in " + pos.get().dimension().getValue() + ", another dimension");
             return;
         }
+        if (!world.isChunkLoaded(pos.get().pos())) {
+            report.warn(what, where + ", not loaded");
+            return;
+        }
         BlockState state = world.getBlockState(pos.get().pos());
         Identifier block = Registries.BLOCK.getId(state.getBlock());
         Optional<RegistryEntry<PointOfInterestType>> poi = world.getPointOfInterestStorage().getType(pos.get().pos());
@@ -384,6 +388,9 @@ final class VillagerWhy {
         if (siteWorld == null) {
             return "";
         }
+        if (!siteWorld.isChunkLoaded(potential.pos())) {
+            return " - not loaded";
+        }
         return siteWorld.getPointOfInterestStorage().getType(potential.pos())
                 .flatMap(poi -> ProfessionBehaviours.refusal(villager, poi))
                 .map(reason -> " - NO, it will be turned away: " + reason)
@@ -442,6 +449,8 @@ final class VillagerWhy {
         } else {
             if (!home.get().dimension().equals(world.getRegistryKey())) {
                 blockers.add("bed is in another dimension");
+            } else if (!world.isChunkLoaded(home.get().pos())) {
+                blockers.add("bed is not loaded");
             } else {
                 BlockState state = world.getBlockState(home.get().pos());
                 if (!state.isIn(BlockTags.BEDS)) {

@@ -36,6 +36,8 @@ public final class RuntimeTextures {
     /// Every id registered here, so leaving a world can hand the images back to the GPU.
     private static final Set<Identifier> REGISTERED = new HashSet<>();
 
+    private static final Set<Identifier> SYNCED = new HashSet<>();
+
     /// Compared only on the render thread; the server thread's reload never touches this field, so no lock is needed.
     private static int generation = -1;
     private static int syncedGeneration = -1;
@@ -62,7 +64,7 @@ public final class RuntimeTextures {
                 throw new IOException("no such file");
             }
             return Files.newInputStream(png.get());
-        }, png.map(Path::toString).orElse(file.get()) + " for " + definition.id()) ? Optional.of(id) : Optional.empty();
+        }, png.map(Path::toString).orElse(file.get()) + " for " + definition.id(), false) ? Optional.of(id) : Optional.empty();
     }
 
     /// Bytes a server sent, for one entity type.
@@ -74,7 +76,7 @@ public final class RuntimeTextures {
         }
 
         Identifier id = look.textureId(entityType);
-        return ensure(id, () -> new ByteArrayInputStream(png.get()), "the image the server sent for " + look.definition()) ? Optional.of(id) : Optional.empty();
+        return ensure(id, () -> new ByteArrayInputStream(png.get()), "the image the server sent for " + look.definition(), true) ? Optional.of(id) : Optional.empty();
     }
 
     /// Queued to the render thread, since the texture manager only lives there.
@@ -86,6 +88,7 @@ public final class RuntimeTextures {
                 textures.destroyTexture(id);
             }
             REGISTERED.clear();
+            SYNCED.clear();
             HANDLED.clear();
         });
     }
@@ -94,11 +97,12 @@ public final class RuntimeTextures {
         InputStream open() throws IOException;
     }
 
-    private static boolean ensure(Identifier id, Source source, String what) {
+    private static boolean ensure(Identifier id, Source source, String what, boolean synced) {
         if (generation != DataDrivenVillagers.generation() || syncedGeneration != SyncedLooks.generation()) {
             generation = DataDrivenVillagers.generation();
             syncedGeneration = SyncedLooks.generation();
             HANDLED.clear();
+            destroySynced();
         }
 
         Boolean known = HANDLED.get(id);
@@ -106,12 +110,25 @@ public final class RuntimeTextures {
             return known;
         }
 
-        boolean registered = register(id, source, what);
+        boolean registered = register(id, source, what, synced);
         HANDLED.put(id, registered);
         return registered;
     }
 
-    private static boolean register(Identifier id, Source source, String what) {
+    /// Frees every id the previous sync registered; a fresh definition id on each sync would else leak them.
+    private static void destroySynced() {
+        if (SYNCED.isEmpty()) {
+            return;
+        }
+        TextureManager textures = MinecraftClient.getInstance().getTextureManager();
+        for (Identifier id : SYNCED) {
+            textures.destroyTexture(id);
+            REGISTERED.remove(id);
+        }
+        SYNCED.clear();
+    }
+
+    private static boolean register(Identifier id, Source source, String what, boolean synced) {
         try (InputStream in = new BufferedInputStream(source.open())) {
             // Header first: server images are untrusted, and the decoder allocates width times height blindly.
             in.mark(PngHeader.LENGTH * 2);
@@ -129,6 +146,9 @@ public final class RuntimeTextures {
             textures.destroyTexture(id);
             textures.registerTexture(id, new NativeImageBackedTexture(id::toString, image));
             REGISTERED.add(id);
+            if (synced) {
+                SYNCED.add(id);
+            }
             return true;
         } catch (IOException e) {
             DataDrivenVillagers.LOGGER.error("Could not read texture {}: {}", what, e.getMessage());

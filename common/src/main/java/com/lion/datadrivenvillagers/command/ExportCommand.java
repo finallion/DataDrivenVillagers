@@ -96,16 +96,18 @@ public final class ExportCommand {
             Scaffold.pieces(definition);
             Files.createDirectories(folder);
             // Overwritten: a zip is built from the parts, never edited in place.
-            try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(zip), StandardCharsets.UTF_8)) {
-                profession(out, definition, json, included);
-                texture(out, definition, professions, included);
+            ConfigFiles.writeAtomically(zip, stream -> {
+                try (ZipOutputStream out = new ZipOutputStream(stream, StandardCharsets.UTF_8)) {
+                    profession(out, definition, json, included);
+                    texture(out, definition, professions, included);
 
-                write(out, "datapack/pack.mcmeta", Scaffold.datapackMeta(definition));
-                write(out, "resourcepack/pack.mcmeta", Scaffold.resourcepackMeta(definition));
-                scaffolded(out, definition, included);
+                    write(out, "datapack/pack.mcmeta", Scaffold.datapackMeta(definition));
+                    write(out, "resourcepack/pack.mcmeta", Scaffold.resourcepackMeta(definition));
+                    scaffolded(out, definition, included);
 
-                write(out, README, readme(definition, included));
-            }
+                    write(out, README, readme(definition, included));
+                }
+            });
         } catch (IOException e) {
             DataDrivenVillagers.LOGGER.error("Could not write {}", zip, e);
             source.sendError(Text.literal("Could not write " + ConfigFiles.relative(zip)

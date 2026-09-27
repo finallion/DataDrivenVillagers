@@ -7,9 +7,9 @@ import net.minecraft.entity.ai.brain.Schedule;
 import net.minecraft.entity.ai.brain.ScheduleBuilder;
 import net.minecraft.util.Identifier;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /// Builds the `Schedule` a villager brain holds from a parsed day plan. No registry entry needed:
 /// a brain holds the object itself and its codec serialises memories only, so a plan can be swapped
@@ -17,9 +17,9 @@ import java.util.Optional;
 /// generation counter.
 public final class VillagerSchedules {
 
-    private static final Map<Identifier, Schedule> BUILT = new HashMap<>();
+    private static final Map<Identifier, Schedule> BUILT = new ConcurrentHashMap<>();
 
-    private static int generation = -1;
+    private static volatile int generation = -1;
 
     private VillagerSchedules() {
     }

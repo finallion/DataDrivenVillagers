@@ -43,30 +43,33 @@ public abstract class StructureTemplateManagerMixin {
             at = @At("HEAD"), cancellable = true)
     private void datadrivenvillagers$loadFromConfigFolder(Identifier id,
                                                           CallbackInfoReturnable<Optional<StructureTemplate>> cir) {
-        Optional<StructureRegistry.GeneratedTemplate> generated = StructureRegistry.generated(id);
-        if (generated.isPresent()) {
-            Identifier workstation = generated.get().definition().workstation().orElseThrow();
-            NbtCompound plot = PlotGenerator.plot(workstation, generated.get().village());
-            cir.setReturnValue(Optional.of(createTemplate(plot)));
-            return;
-        }
+        try {
+            Optional<StructureRegistry.GeneratedTemplate> generated = StructureRegistry.generated(id);
+            if (generated.isPresent()) {
+                Identifier workstation = generated.get().definition().workstation().orElseThrow();
+                NbtCompound plot = PlotGenerator.plot(workstation, generated.get().village());
+                cir.setReturnValue(Optional.of(createTemplate(plot)));
+                return;
+            }
 
-        Optional<StructureDefinition> definition = StructureRegistry.get(id);
-        if (definition.isEmpty() || definition.get().generated()) {
-            return;
-        }
+            Optional<StructureDefinition> definition = StructureRegistry.get(id);
+            if (definition.isEmpty() || definition.get().generated()) {
+                return;
+            }
 
-        Path file = StructureLoader.fileOf(definition.get());
-        if (!Files.isRegularFile(file)) {
-            // The loader rejects a definition without its nbt, so the file vanished at runtime.
-            DataDrivenVillagers.LOGGER.error("{} points at structure {}, which does not exist", id, file);
-            return;
-        }
+            Path file = StructureLoader.fileOf(definition.get());
+            if (!Files.isRegularFile(file)) {
+                // The loader rejects a definition without its nbt, so the file vanished at runtime.
+                DataDrivenVillagers.LOGGER.error("{} points at structure {}, which does not exist", id, file);
+                return;
+            }
 
-        try (InputStream in = Files.newInputStream(file)) {
-            cir.setReturnValue(Optional.of(readTemplate(in)));
-        } catch (IOException e) {
-            DataDrivenVillagers.LOGGER.error("Could not read structure {} for {}", file, id, e);
+            try (InputStream in = Files.newInputStream(file)) {
+                cir.setReturnValue(Optional.of(readTemplate(in)));
+            }
+        } catch (IOException | RuntimeException e) {
+            // Vanilla's own loader catches Throwable here; a bad nbt must not crash chunk generation.
+            DataDrivenVillagers.LOGGER.error("Could not read structure {}", id, e);
         }
     }
 }
