@@ -3,7 +3,7 @@
   "id": "datadrivenvillagers",
   "version": "${version}",
   "name": "DataDrivenVillagers",
-  "description": "Define villager professions in JSON: bind one to a workstation block, give it a texture, and let VillagerTradingPlus handle the trades.",
+  "description": "Define villager professions in JSON. Bind one to a workstation block, give it a texture, and let VillagersTradingPlus handle the trades.",
   "authors": [
     "Lion"
   ],
