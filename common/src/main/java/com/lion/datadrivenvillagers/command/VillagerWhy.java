@@ -1,6 +1,7 @@
 package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.mixin.MerchantEntityAccessor;
+import com.lion.datadrivenvillagers.mixin.VillagerTypeAccessor;
 import com.lion.datadrivenvillagers.profession.Attack;
 import com.lion.datadrivenvillagers.profession.EntityRange;
 import com.lion.datadrivenvillagers.profession.ProfessionBehaviours;
@@ -227,7 +228,7 @@ final class VillagerWhy {
             return;
         }
         Identifier biomeId = key.get().getValue();
-        VillagerType holder = VillagerType.BIOME_TO_TYPE.get(key.get());
+        VillagerType holder = VillagerTypeAccessor.ddv$biomeToType().get(key.get());
         String how;
         if (holder != null && Registries.VILLAGER_TYPE.getId(holder).equals(typeId)) {
             if (d.biomes().contains(biomeId)) {

@@ -3,6 +3,10 @@ package com.lion.datadrivenvillagers.command;
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.PngHeader;
+import com.lion.datadrivenvillagers.mixin.PointOfInterestTypesAccessor;
+import com.lion.datadrivenvillagers.mixin.SinglePoolElementAccessor;
+import com.lion.datadrivenvillagers.mixin.StructurePoolAccessor;
+import com.lion.datadrivenvillagers.mixin.VillagerTypeAccessor;
 import com.lion.datadrivenvillagers.network.LookSync;
 import com.lion.datadrivenvillagers.platform.PlatformInfo;
 import com.lion.datadrivenvillagers.profession.EntityRange;
@@ -57,7 +61,6 @@ import net.minecraft.world.biome.Biome;
 import net.minecraft.world.poi.PointOfInterest;
 import net.minecraft.world.poi.PointOfInterestStorage;
 import net.minecraft.world.poi.PointOfInterestType;
-import net.minecraft.world.poi.PointOfInterestTypes;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -225,7 +228,7 @@ public final class WhyCommand {
             if (owner == null) {
                 leading++;
                 notes.add(new Note(true, blockId + "  "
-                        + PointOfInterestTypes.getStatesOfBlock(block.get()).size() + " state(s)"));
+                        + PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get()).size() + " state(s)"));
             } else {
                 notes.add(new Note(false, blockId + "  " + owner));
             }
@@ -246,13 +249,13 @@ public final class WhyCommand {
 
     /// @return null when every state of the block leads to this job site, otherwise who holds it
     private static String ownerOf(Block block, RegistryEntry<PointOfInterestType> poi, boolean allowNaturalBlock) {
-        Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block);
+        Set<BlockState> states = PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block);
         if (states.isEmpty()) {
             return "block has no states";
         }
 
         for (BlockState state : states) {
-            RegistryEntry<PointOfInterestType> holder = PointOfInterestTypes.POI_STATES_TO_TYPE.get(state);
+            RegistryEntry<PointOfInterestType> holder = PointOfInterestTypesAccessor.ddv$poiStatesToType().get(state);
             if (holder == null) {
                 if (!allowNaturalBlock && ProfessionLoader.isNaturalBlock(Registries.BLOCK.getId(block))) {
                     return "generates naturally, needs \"allow_natural_block\": true";
@@ -357,7 +360,7 @@ public final class WhyCommand {
 
     /// Blocks from POI_STATES_TO_TYPE, the sensor's map; a block another mod claimed is not listed here.
     private static List<String> jobSiteBlocks(RegistryEntry<PointOfInterestType> poi) {
-        return PointOfInterestTypes.POI_STATES_TO_TYPE.entrySet().stream()
+        return PointOfInterestTypesAccessor.ddv$poiStatesToType().entrySet().stream()
                 .filter(entry -> entry.getValue().value() == poi.value())
                 .map(entry -> Registries.BLOCK.getId(entry.getKey().getBlock()).toString())
                 .distinct().sorted().toList();
@@ -561,7 +564,7 @@ public final class WhyCommand {
         namedBiomes(report, definition, key, biomes);
         biomeTags(report, definition, key, biomes);
 
-        long held = VillagerType.BIOME_TO_TYPE.values().stream()
+        long held = VillagerTypeAccessor.ddv$biomeToType().values().stream()
                 .filter(type -> definition.id().equals(Registries.VILLAGER_TYPE.getId(type))).count();
         if (report.isBroken()) {
             report.verdict(false, "Broken at: " + report.firstBreak());
@@ -614,7 +617,7 @@ public final class WhyCommand {
 
     /// @return the id of the villager type holding this biome, null when nothing holds it
     private static Identifier holderOf(RegistryKey<Biome> biome) {
-        VillagerType holder = VillagerType.BIOME_TO_TYPE.get(biome);
+        VillagerType holder = VillagerTypeAccessor.ddv$biomeToType().get(biome);
         return holder == null ? null : Registries.VILLAGER_TYPE.getId(holder);
     }
 
@@ -779,12 +782,12 @@ public final class WhyCommand {
     /// Draws of this pool that land on the template: vanilla holds one element per point of weight.
     private static int countIn(StructurePool pool, Identifier id) {
         int copies = 0;
-        for (StructurePoolElement element : pool.elements) {
+        for (StructurePoolElement element : ((StructurePoolAccessor) pool).ddv$elements()) {
             if (!(element instanceof SinglePoolElement single)) {
                 continue;
             }
             // An element built from a template instead of an id (another mod's) has no id.
-            if (single.location.left().filter(id::equals).isPresent()) {
+            if (((SinglePoolElementAccessor) single).ddv$location().left().filter(id::equals).isPresent()) {
                 copies++;
             }
         }

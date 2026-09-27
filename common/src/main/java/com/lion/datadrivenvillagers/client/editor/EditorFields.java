@@ -1,5 +1,6 @@
 package com.lion.datadrivenvillagers.client.editor;
 
+import com.lion.datadrivenvillagers.mixin.PointOfInterestTypesAccessor;
 import com.lion.datadrivenvillagers.profession.Attack;
 import com.lion.datadrivenvillagers.profession.EntityRange;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
@@ -8,7 +9,6 @@ import com.lion.datadrivenvillagers.profession.ProfessionParser;
 
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
-import net.minecraft.world.poi.PointOfInterestTypes;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -225,7 +225,7 @@ public final class EditorFields {
             for (Identifier id : Registries.BLOCK.getIds()) {
                 Registries.BLOCK.getOrEmpty(id).ifPresent(block -> {
                     if (!ProfessionLoader.isNaturalBlock(id) && ProfessionLoader.existingOwner(
-                            PointOfInterestTypes.getStatesOfBlock(block)).isEmpty()) {
+                            PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block)).isEmpty()) {
                         free.add(id);
                     }
                 });
@@ -242,7 +242,7 @@ public final class EditorFields {
             return Optional.empty();
         }
         return Registries.BLOCK.getOrEmpty(id)
-                .flatMap(block -> ProfessionLoader.existingOwner(PointOfInterestTypes.getStatesOfBlock(block)));
+                .flatMap(block -> ProfessionLoader.existingOwner(PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block)));
     }
 
     /// True for an id absent from the block registry, so the screen can flag it before save does.
