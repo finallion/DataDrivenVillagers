@@ -24,7 +24,6 @@ public final class EditorFields {
         TEXT, LIST, NUMBER, RANGES
     }
 
-    /// Where the suggestions under a box come from.
     public enum Source {
         NONE, FREE_BLOCK, BLOCK, ENTITY, ITEM, SOUND, VILLAGER_TYPE, PROFESSION
     }
