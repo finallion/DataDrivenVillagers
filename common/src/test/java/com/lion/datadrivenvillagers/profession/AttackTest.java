@@ -54,6 +54,14 @@ class AttackTest {
     }
 
     @Test
+    void settingsOfTheWrongTypeNameTheTypeEvenWithoutTargets() {
+        DefinitionParseException e = assertThrows(DefinitionParseException.class, () -> parse("""
+                { "workstation": "minecraft:lantern", "attack": 5 }
+                """));
+        assertTrue(e.getMessage().contains("must be an object"), e.getMessage());
+    }
+
+    @Test
     void badNumbersAreRejectedWithTheFieldNamed() {
         DefinitionParseException zero = assertThrows(DefinitionParseException.class, () -> parse("""
                 { "workstation": "minecraft:lantern", "attacks": "minecraft:zombie", "attack": { "damage": 0 } }
