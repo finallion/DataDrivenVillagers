@@ -1,7 +1,7 @@
 # DataDrivenVillagers
 
 Define villager professions in JSON. Bind one to a workstation block, give it a texture, and let
-[VillagerTradingPlus](https://www.curseforge.com/minecraft/mc-mods/villagerstradingplus) handle the
+[VillagersTradingPlus](https://www.curseforge.com/minecraft/mc-mods/villagerstradingplus) handle the
 trades.
 
 No Java, no fork, no resource pack required.
@@ -209,7 +209,7 @@ allowed types.
 
 ## Trades
 
-Trades come from VillagerTradingPlus. Add a trade file to a datapack at
+Trades come from VillagersTradingPlus. Add a trade file to a datapack at
 `data/<your_namespace>/default_villager_trades/baker.json` with `"profession": "datadrivenvillagers:baker"`.
 
 The gift is a loot table in a datapack, and the name is a translation in a resource pack.
@@ -366,8 +366,8 @@ A definition loads as long as at least one of its workstation blocks exists.
 
 A block state can belong to only one point of interest. Before it registers a job site, the mod checks
 this and skips a block that another mod already claimed, with a warning. A block that another mod
-claims **after** this mod runs cannot be checked. On Forge, vanilla then rejects the second claim
-and the game crashes at startup. On Fabric, the last claim wins without a message. Do not use a block
+claims **after** this mod runs cannot be checked. Vanilla then rejects the second claim, and the game
+crashes at startup with `defined in more than one PoI type`, on Fabric and on Forge. Do not use a block
 that another villager mod makes its own workstation. `/ddv blocks` shows only what is taken at the
 moment you run it.
 
