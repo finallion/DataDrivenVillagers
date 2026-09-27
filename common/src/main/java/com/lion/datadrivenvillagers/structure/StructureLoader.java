@@ -1,6 +1,7 @@
 package com.lion.datadrivenvillagers.structure;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
@@ -45,6 +46,7 @@ public final class StructureLoader {
 
     private static final String FOLDER = "structures";
     private static final String EXTENSION = ".json";
+    private static final String NBT_NOTE = "an edited .nbt file applies once the world is re-entered";
 
     /// Stored once per element, not once per weight point like a normal pool, so a reload can remove every copy.
     private static final Map<Identifier, List<StructurePoolElement>> INJECTED = new LinkedHashMap<>();
@@ -106,6 +108,15 @@ public final class StructureLoader {
         return outcomes(before);
     }
 
+    private static ReloadOutcome outcome(String file, boolean unchanged, boolean generated) {
+        if (generated) {
+            return unchanged ? ReloadOutcome.unchanged(file) : ReloadOutcome.updated(file, "pools rebuilt");
+        }
+        return unchanged
+                ? new ReloadOutcome(file, ReloadOutcome.Kind.UNCHANGED, "json unchanged; " + NBT_NOTE)
+                : ReloadOutcome.updated(file, "pools rebuilt; " + NBT_NOTE);
+    }
+
     /// Structures reload whole, rebuilt per world, so no outcome here ever needs a restart.
     private static List<ReloadOutcome> outcomes(Map<Identifier, StructureDefinition> before) {
         List<ReloadOutcome> outcomes = new ArrayList<>();
@@ -116,9 +127,7 @@ public final class StructureLoader {
                 outcomes.add(ReloadOutcome.updated(file, "added to "
                         + definition.targetPools().size() + " pool(s)"));
             } else {
-                outcomes.add(old.equals(definition)
-                        ? ReloadOutcome.unchanged(file)
-                        : ReloadOutcome.updated(file, "pools rebuilt"));
+                outcomes.add(outcome(file, old.equals(definition), definition.generated()));
             }
         }
         for (StructureDefinition gone : before.values()) {
@@ -263,7 +272,11 @@ public final class StructureLoader {
             String safeName = DefinitionParseException.sanitize(fileName);
             String reason = DefinitionParseException.readableReason(e);
             StructureRegistry.addError(safeName, reason);
-            DataDrivenVillagers.LOGGER.error("Skipping structure file {}: {}", safeName, reason);
+            if (e instanceof DefinitionParseException || e instanceof JsonParseException) {
+                DataDrivenVillagers.LOGGER.error("Skipping structure file {}: {}", safeName, reason);
+            } else {
+                DataDrivenVillagers.LOGGER.error("Skipping structure file {}: {}", safeName, reason, e);
+            }
         }
     }
 }

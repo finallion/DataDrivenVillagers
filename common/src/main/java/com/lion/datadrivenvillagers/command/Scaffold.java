@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
+import com.lion.datadrivenvillagers.platform.PlatformInfo;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 import com.lion.datadrivenvillagers.structure.PlotGenerator;
@@ -77,16 +78,16 @@ public final class Scaffold {
                 DataDrivenVillagers.id("gameplay/hero_of_the_village/" + definition.name() + "_gift"));
     }
 
-    /// Vanilla's key is always `entity.minecraft.villager.<path>`, regardless of this mod's namespace.
+    /// The key vanilla looks up for this profession; NeoForge includes the namespace, Fabric does not.
     public static String translationKey(ProfessionDefinition definition) {
-        return "entity.minecraft.villager." + definition.target().getPath();
+        return PlatformInfo.villagerNameKey(definition.target());
     }
 
     private static String trades(ProfessionDefinition definition) {
         String target = definition.target().toString();
         return """
                 {
-                  "_comment": "VillagerTradingPlus trades for %s. The profession is read from the \\"profession\\" key below, not from this file's name. default_villager_trades replaces the profession's set, villager_trades adds to it. A villager is handed only the tier of the level he is on when first clicked - a summoned level:2 villager sees apprentice, not novice.",
+                  "_comment": "VillagersTradingPlus trades for %s. The profession is read from the \\"profession\\" key below, not from this file's name. default_villager_trades replaces the profession's set, villager_trades adds to it. A villager is handed only the tier of the level he is on when first clicked - a summoned level:2 villager sees apprentice, not novice.",
                   "profession": "%s",
                   "trades": {
                     "novice": [
@@ -213,7 +214,7 @@ public final class Scaffold {
     /// For the world datapack the editor's trades button writes into, one file per profession.
     public static String tradesPackMeta() {
         return packMeta(packVersion(ResourceType.SERVER_DATA),
-                "VillagerTradingPlus trade files started from /ddv edit");
+                "VillagersTradingPlus trade files started from /ddv edit");
     }
 
     /// The two pack format constants next to this are deprecated; the version object is not.

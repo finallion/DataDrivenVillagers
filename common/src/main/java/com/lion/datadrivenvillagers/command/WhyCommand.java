@@ -4,6 +4,7 @@ import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.PngHeader;
 import com.lion.datadrivenvillagers.network.LookSync;
+import com.lion.datadrivenvillagers.platform.PlatformInfo;
 import com.lion.datadrivenvillagers.profession.EntityRange;
 import com.lion.datadrivenvillagers.profession.HatKind;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
@@ -207,12 +208,16 @@ public final class WhyCommand {
 
         List<Note> notes = new ArrayList<>();
         int leading = 0;
+        List<String> bulk = new ArrayList<>();
 
         for (Identifier blockId : declared) {
             Optional<Block> block = Registries.BLOCK.getOrEmpty(blockId);
             if (block.isEmpty()) {
                 notes.add(new Note(false, blockId + "  no such block"));
                 continue;
+            }
+            if (ProfessionLoader.isStructureBulkBlock(blockId)) {
+                bulk.add(blockId.toString());
             }
 
             String owner = ownerOf(block.get(), poi, definition.allowNaturalBlock());
@@ -233,6 +238,9 @@ public final class WhyCommand {
             report.ok("blocks lead to the job site", leading + " of " + declared.size() + " block(s)");
         }
         report.notes(notes);
+        if (!bulk.isEmpty()) {
+            report.warn("generated structures place this in bulk", shortList(bulk));
+        }
     }
 
     /// @return null when every state of the block leads to this job site, otherwise who holds it
@@ -289,16 +297,9 @@ public final class WhyCommand {
         schedule(report, definition);
         behaviour(report, definition);
 
-        // Fields an override never reads: neither applied nor rejected, so they need naming.
-        List<String> ignored = ProfessionLoader.ignoredFields(definition);
-        if (!ignored.isEmpty()) {
-            report.extra("ignored", Text.literal(String.join(", ", ignored)
-                    + "  an override never reads these").formatted(Formatting.YELLOW));
-        }
-
         if (definition.displayName().isEmpty() && !definition.isOverride()) {
             report.extra("name", Text.literal("no \"display_name\", so the villager is named by whatever "
-                            + "a language file says for entity.minecraft.villager." + definition.name())
+                            + "a language file says for " + PlatformInfo.villagerNameKey(definition.target()))
                     .formatted(Formatting.GRAY));
         }
 
@@ -324,7 +325,6 @@ public final class WhyCommand {
         }
 
         if (does.isEmpty()) {
-            // Every field it sets is one an override never reads; the "ignored" line names them.
             return definition.name() + ".json changes nothing about " + target + ".";
         }
         return definition.name() + ".json changes how " + target + " " + and(does) + ".";
@@ -399,14 +399,14 @@ public final class WhyCommand {
                     .formatted(Formatting.GRAY));
             return;
         }
-        // Lines first: the summary's nobody note depends on what describe() counted.
+        // Lines first: the summary's unaccounted-for note depends on what describe() counted.
         Holders holders = Holders.around(source.getWorld(), here);
         List<Note> notes = new ArrayList<>();
         stations.stream().limit(8).forEach(station -> notes.add(new Note(station.hasSpace(),
                 station.getPos().toShortString() + "  " + holders.describe(station))));
         long withSpace = stations.stream().filter(PointOfInterest::hasSpace).count();
         report.extra("placed", Text.literal(stations.size() + " block(s) within 48 blocks of you, " + withSpace
-                + " with a free place" + holders.nobodyNote())
+                + " with a free place" + holders.unaccountedNote())
                 .formatted(withSpace == 0 ? Formatting.YELLOW : Formatting.GRAY));
         report.notes(notes, Formatting.GREEN);
     }

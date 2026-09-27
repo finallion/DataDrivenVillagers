@@ -192,7 +192,7 @@ public final class ScaffoldCommand {
         out.append("Written by /ddv scaffold ").append(definition.name())
                 .append(", and rewritten on every run. Edit the json files, not this one.\n\n");
         out.append("The mod reads none of these three. They are the parts that belong to a datapack, a\n");
-        out.append("resource pack and to VillagerTradingPlus, and each of them is a format you would\n");
+        out.append("resource pack and to VillagersTradingPlus, and each of them is a format you would\n");
         out.append("otherwise have to look up somewhere else first.\n\n");
 
         for (Scaffold.Piece piece : Scaffold.pieces(definition)) {

@@ -32,9 +32,15 @@ public class DataDrivenVillagersFabric implements ModInitializer {
         CommandRegistrationCallback.EVENT.register(
                 (dispatcher, access, environment) -> DataDrivenVillagersCommand.register(dispatcher, access));
 
-        CommonLifecycleEvents.TAGS_LOADED.register((registries, client) ->
-                TypeLoader.claimTags(registries.get(RegistryKeys.BIOME)));
+        // Client tag loads fire in single player too; the claim maps are server-side state.
+        CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> {
+            if (!client) {
+                TypeLoader.claimTags(registries.get(RegistryKeys.BIOME));
+            }
+        });
 
+        // A tag claim from a past world must not survive into the next one in the same session.
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> TypeLoader.releaseTagClaims());
         // Template pools are a datapack registry, built per world: nothing to append to before a server exists.
         ServerLifecycleEvents.SERVER_STARTING.register(StructureLoader::load);
         // Restores POI claims a registry sync dropped; retries overrides whose target registered late.

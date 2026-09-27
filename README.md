@@ -90,6 +90,11 @@ dirt, sand, logs, leaves, terracotta, geode blocks and a few more. Every natural
 job site, and the log fills with `POI data mismatch: never registered`. Set `"allow_natural_block": true` on
 the profession or override to use one of these blocks anyway.
 
+Blocks that generated structures place in bulk instead - cobblestone, stone bricks, prismarine, nether
+bricks, purpur, cobbled deepslate, deepslate tiles and bricks, mud bricks, and the wood plank types -
+are not rejected and need no flag. Using one still logs a warning, because point of interest data and
+search cost grow with the explored world.
+
 ## Textures
 
 Put `baker.png` next to `baker.json` and set `"texture": "baker.png"`. The mod loads the image at
