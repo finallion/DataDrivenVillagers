@@ -10,6 +10,8 @@
     "StructureTemplateManagerMixin",
     "FindPointOfInterestTaskMixin",
     "MerchantEntityAccessor",
+    "PointOfInterestTypesAccessor",
+    "SinglePoolElementAccessor",
     "StructurePoolAccessor",
     "VillagerEntityAttackMixin",
     "VillagerEntityMixin",

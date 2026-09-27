@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
 import com.lion.datadrivenvillagers.DefinitionParseException;
 import com.lion.datadrivenvillagers.ReloadOutcome;
+import com.lion.datadrivenvillagers.mixin.PointOfInterestTypesAccessor;
 import com.lion.datadrivenvillagers.platform.ConfigDirectory;
 import com.lion.datadrivenvillagers.platform.PlatformInfo;
 import com.lion.datadrivenvillagers.platform.RegistryHelper;
@@ -29,7 +30,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.village.VillagerProfession;
 import net.minecraft.world.EmptyBlockView;
 import net.minecraft.world.poi.PointOfInterestType;
-import net.minecraft.world.poi.PointOfInterestTypes;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -239,7 +239,7 @@ public final class ProfessionLoader {
 
             // Vanilla fills this map in static init before mod POIs exist; the sensor reads it, not the registry.
             for (BlockState state : poi.blockStates()) {
-                PointOfInterestTypes.POI_STATES_TO_TYPE.put(state, entry);
+                PointOfInterestTypesAccessor.ddv$poiStatesToType().put(state, entry);
             }
             ProfessionRegistry.add(definition, entry);
             warnIfTextureless(definition);
@@ -252,7 +252,7 @@ public final class ProfessionLoader {
     /// Names the one workstation block another job site already owns, if any.
     private static Optional<String> conflictReason(PointOfInterestType poi) {
         for (BlockState state : poi.blockStates()) {
-            RegistryEntry<PointOfInterestType> existing = PointOfInterestTypes.POI_STATES_TO_TYPE.get(state);
+            RegistryEntry<PointOfInterestType> existing = PointOfInterestTypesAccessor.ddv$poiStatesToType().get(state);
             if (existing != null) {
                 String owner = existing.getKey().map(key -> key.getValue().toString()).orElse("another job site");
                 return Optional.of(Registries.BLOCK.getId(state.getBlock()) + " is already a job site of " + owner);
@@ -557,9 +557,9 @@ public final class ProfessionLoader {
             return 0;
         }
         boolean removed = false;
-        for (BlockState state : PointOfInterestTypes.getStatesOfBlock(block.get())) {
-            if (PointOfInterestTypes.POI_STATES_TO_TYPE.get(state) == poi) {
-                PointOfInterestTypes.POI_STATES_TO_TYPE.remove(state);
+        for (BlockState state : PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get())) {
+            if (PointOfInterestTypesAccessor.ddv$poiStatesToType().get(state) == poi) {
+                PointOfInterestTypesAccessor.ddv$poiStatesToType().remove(state);
                 removed = true;
             }
         }
@@ -572,12 +572,12 @@ public final class ProfessionLoader {
         if (block.isEmpty() || unsuitableWorkstation(block.get(), allowNaturalBlock).isPresent()) {
             return false;
         }
-        Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
+        Set<BlockState> states = PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get());
         if (existingOwner(states).isPresent()) {
             return false;
         }
         for (BlockState state : states) {
-            PointOfInterestTypes.POI_STATES_TO_TYPE.put(state, poi);
+            PointOfInterestTypesAccessor.ddv$poiStatesToType().put(state, poi);
         }
         return true;
     }
@@ -720,11 +720,11 @@ public final class ProfessionLoader {
             if (block.isEmpty() || unsuitableWorkstation(block.get(), allowNaturalBlock).isPresent()) {
                 continue;
             }
-            Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
+            Set<BlockState> states = PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get());
             boolean ownedByAnother = false;
             boolean missing = false;
             for (BlockState state : states) {
-                RegistryEntry<PointOfInterestType> current = PointOfInterestTypes.POI_STATES_TO_TYPE.get(state);
+                RegistryEntry<PointOfInterestType> current = PointOfInterestTypesAccessor.ddv$poiStatesToType().get(state);
                 if (current == null) {
                     missing = true;
                 } else if (current != jobSite) {
@@ -735,7 +735,7 @@ public final class ProfessionLoader {
                 continue;
             }
             for (BlockState state : states) {
-                PointOfInterestTypes.POI_STATES_TO_TYPE.putIfAbsent(state, jobSite);
+                PointOfInterestTypesAccessor.ddv$poiStatesToType().putIfAbsent(state, jobSite);
             }
             restored++;
         }
@@ -828,14 +828,14 @@ public final class ProfessionLoader {
                 continue;
             }
 
-            Set<BlockState> states = PointOfInterestTypes.getStatesOfBlock(block.get());
+            Set<BlockState> states = PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get());
             Optional<String> owner = existingOwner(states);
             if (owner.isPresent()) {
                 taken.add(blockId + " (already " + owner.get() + ")");
                 continue;
             }
             for (BlockState state : states) {
-                PointOfInterestTypes.POI_STATES_TO_TYPE.put(state, jobSite);
+                PointOfInterestTypesAccessor.ddv$poiStatesToType().put(state, jobSite);
             }
             added++;
         }
@@ -917,7 +917,7 @@ public final class ProfessionLoader {
                 continue;
             }
 
-            Set<BlockState> blockStates = PointOfInterestTypes.getStatesOfBlock(block.get());
+            Set<BlockState> blockStates = PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get());
             Optional<String> owner = ownerOf(blockStates, claimedByEarlierFiles);
             if (owner.isPresent()) {
                 taken.add(blockId + " (already " + owner.get() + ")");
@@ -992,7 +992,7 @@ public final class ProfessionLoader {
     /// One point of interest type per block state; NeoForge aborts a second claim, Fabric lets the last writer win.
     public static Optional<String> existingOwner(Set<BlockState> states) {
         for (BlockState state : states) {
-            RegistryEntry<PointOfInterestType> existing = PointOfInterestTypes.POI_STATES_TO_TYPE.get(state);
+            RegistryEntry<PointOfInterestType> existing = PointOfInterestTypesAccessor.ddv$poiStatesToType().get(state);
             if (existing != null) {
                 return Optional.of(existing.getKey()
                         .map(key -> key.getValue().toString())
@@ -1024,7 +1024,7 @@ public final class ProfessionLoader {
                 unsuitable.add(reason.get());
                 continue;
             }
-            Optional<String> owner = existingOwner(PointOfInterestTypes.getStatesOfBlock(block.get()));
+            Optional<String> owner = existingOwner(PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block.get()));
             if (owner.isPresent() && !owner.get().equals(own)) {
                 taken.add(blockId + " (already " + owner.get() + ")");
                 continue;

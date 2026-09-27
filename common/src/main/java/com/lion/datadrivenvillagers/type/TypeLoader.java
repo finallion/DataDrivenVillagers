@@ -106,7 +106,7 @@ public final class TypeLoader {
         for (TypeDefinition definition : PARSED) {
             try {
                 VillagerType type = RegistryHelper.registerVillagerType(definition.id(),
-                        new VillagerType(definition.name()));
+                        VillagerTypeAccessor.ddv$create(definition.name()));
                 TypeRegistry.add(definition);
                 claimNamedBiomes(claims, definition, type);
             } catch (Exception e) {
@@ -324,7 +324,7 @@ public final class TypeLoader {
         }
 
         static Claims ofCurrent() {
-            return new Claims(new HashMap<>(VillagerType.BIOME_TO_TYPE), new HashMap<>(ownClaims),
+            return new Claims(new HashMap<>(VillagerTypeAccessor.ddv$biomeToType()), new HashMap<>(ownClaims),
                     new HashMap<>(namedClaims));
         }
 
