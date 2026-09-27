@@ -1,6 +1,7 @@
 package com.lion.datadrivenvillagers.profession;
 
 import com.google.gson.JsonParser;
+import com.lion.datadrivenvillagers.LoadError;
 import net.minecraft.util.Identifier;
 import org.junit.jupiter.api.Test;
 
@@ -36,8 +37,8 @@ class ProfessionReloadTest {
                 """);
         Map<Identifier, ProfessionDefinition> previous = previousOf(custom, night);
 
-        List<ProfessionRegistry.LoadError> errors = List.of(
-                new ProfessionRegistry.LoadError("zz_test_custom.json", "unknown activity \"play\""));
+        List<LoadError> errors = List.of(
+                new LoadError("zz_test_custom.json", "unknown activity \"play\""));
         Map<Identifier, ProfessionDefinition> kept = ProfessionLoader.keptDespiteRejection(previous, errors);
 
         assertEquals(1, kept.size());
@@ -50,8 +51,8 @@ class ProfessionReloadTest {
         ProfessionDefinition night = parse("zz_test_night", """
                 { "workstation": "minecraft:bookshelf" }
                 """);
-        List<ProfessionRegistry.LoadError> errors = List.of(
-                new ProfessionRegistry.LoadError("malformed.json", "End of input"));
+        List<LoadError> errors = List.of(
+                new LoadError("malformed.json", "End of input"));
 
         assertTrue(ProfessionLoader.keptDespiteRejection(previousOf(night), errors).isEmpty());
     }
@@ -62,8 +63,8 @@ class ProfessionReloadTest {
         ProfessionDefinition farmer = parse("zz_test_farmer_night", """
                 { "overrides": "minecraft:farmer", "schedule": "night" }
                 """);
-        List<ProfessionRegistry.LoadError> errors = List.of(
-                new ProfessionRegistry.LoadError("zz_test_farmer_night.json", "broken"));
+        List<LoadError> errors = List.of(
+                new LoadError("zz_test_farmer_night.json", "broken"));
 
         Map<Identifier, ProfessionDefinition> kept = ProfessionLoader.keptDespiteRejection(previousOf(farmer), errors);
         assertTrue(kept.containsKey(Identifier.of("minecraft", "farmer")));
@@ -75,8 +76,8 @@ class ProfessionReloadTest {
                 { "workstation": "minecraft:lantern" }
                 """);
         Map<Identifier, ProfessionDefinition> kept = previousOf(custom);
-        ProfessionRegistry.LoadError edited = new ProfessionRegistry.LoadError("zz_test_custom.json", "unknown activity \"play\"");
-        ProfessionRegistry.LoadError fresh = new ProfessionRegistry.LoadError("malformed.json", "End of input");
+        LoadError edited = new LoadError("zz_test_custom.json", "unknown activity \"play\"");
+        LoadError fresh = new LoadError("malformed.json", "End of input");
 
         assertTrue(ProfessionLoader.rejectionDetail(edited, kept).contains("stays in effect"));
         assertEquals("End of input", ProfessionLoader.rejectionDetail(fresh, kept));

@@ -2,6 +2,7 @@ package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.ConfigFiles;
 import com.lion.datadrivenvillagers.DataDrivenVillagers;
+import com.lion.datadrivenvillagers.LoadError;
 import com.lion.datadrivenvillagers.PngHeader;
 import com.lion.datadrivenvillagers.mixin.PointOfInterestTypesAccessor;
 import com.lion.datadrivenvillagers.mixin.SinglePoolElementAccessor;
@@ -68,6 +69,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -201,9 +203,7 @@ public final class WhyCommand {
     /// On Fabric, a later-registered point of interest silently takes over a block state in POI_STATES_TO_TYPE.
     private static void blocks(Report report, ProfessionDefinition definition,
                                RegistryEntry<PointOfInterestType> poi) {
-        List<Identifier> declared = definition.isOverride()
-                ? definition.addWorkstations()
-                : definition.workstations();
+        List<Identifier> declared = definition.ownBlocks();
 
         if (declared.isEmpty()) {
             report.skipped("blocks lead to the job site", "this file adds no blocks of its own");
@@ -249,24 +249,15 @@ public final class WhyCommand {
 
     /// @return null when every state of the block leads to this job site, otherwise who holds it
     private static String ownerOf(Block block, RegistryEntry<PointOfInterestType> poi, boolean allowNaturalBlock) {
-        Set<BlockState> states = PointOfInterestTypesAccessor.ddv$getStatesOfBlock(block);
-        if (states.isEmpty()) {
-            return "block has no states";
+        String ownId = poi.getKey().map(key -> key.getValue().toString()).orElse(null);
+        ProfessionLoader.BlockVerdict verdict = ProfessionLoader.check(block, allowNaturalBlock, ownId, Map.of());
+        if (verdict.unsuitableReason().isPresent()) {
+            return verdict.unsuitableReason().get();
         }
-
-        for (BlockState state : states) {
-            RegistryEntry<PointOfInterestType> holder = PointOfInterestTypesAccessor.ddv$poiStatesToType().get(state);
-            if (holder == null) {
-                if (!allowNaturalBlock && ProfessionLoader.isNaturalBlock(Registries.BLOCK.getId(block))) {
-                    return "generates naturally, needs \"allow_natural_block\": true";
-                }
-                return "not a job site block";
-            }
-            if (holder.value() != poi.value()) {
-                return "belongs to " + holder.getIdAsString();
-            }
+        if (verdict.ownerId().isPresent()) {
+            return "belongs to " + verdict.ownerId().get();
         }
-        return null;
+        return verdict.anyStateFree() ? "not a job site block" : null;
     }
 
     /// Extra facts appear below regardless of the verdict: even a broken profession gets them reported.
@@ -865,7 +856,7 @@ public final class WhyCommand {
 
         Optional<String> profession = ProfessionRegistry.errors().stream()
                 .filter(error -> error.file().equalsIgnoreCase(file))
-                .map(ProfessionRegistry.LoadError::reason)
+                .map(LoadError::reason)
                 .findFirst();
         if (profession.isPresent()) {
             return rejected(source, asked, "profession file, rejected", profession.get());
@@ -873,7 +864,7 @@ public final class WhyCommand {
 
         Optional<String> type = TypeRegistry.errors().stream()
                 .filter(error -> error.file().equalsIgnoreCase(file))
-                .map(TypeRegistry.LoadError::reason)
+                .map(LoadError::reason)
                 .findFirst();
         if (type.isPresent()) {
             return rejected(source, asked, "villager type file, rejected", type.get());
@@ -881,7 +872,7 @@ public final class WhyCommand {
 
         Optional<String> structure = StructureRegistry.errors().stream()
                 .filter(error -> error.file().equalsIgnoreCase(file))
-                .map(StructureRegistry.LoadError::reason)
+                .map(LoadError::reason)
                 .findFirst();
         if (structure.isPresent()) {
             return rejected(source, asked, "structure file, rejected", structure.get());

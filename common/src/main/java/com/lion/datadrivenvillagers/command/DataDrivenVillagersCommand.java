@@ -1,6 +1,7 @@
 package com.lion.datadrivenvillagers.command;
 
 import com.lion.datadrivenvillagers.ConfigFiles;
+import com.lion.datadrivenvillagers.LoadError;
 import com.lion.datadrivenvillagers.profession.ProfessionDefinition;
 import com.lion.datadrivenvillagers.profession.ProfessionLoader;
 import com.lion.datadrivenvillagers.profession.ProfessionRegistry;
@@ -135,13 +136,13 @@ public final class DataDrivenVillagersCommand {
         ServerCommandSource source = context.getSource();
 
         int shown = 0;
-        for (ProfessionRegistry.LoadError error : ProfessionRegistry.errors()) {
+        for (LoadError error : ProfessionRegistry.errors()) {
             shown += report(source, "professions", error.file(), error.reason());
         }
-        for (TypeRegistry.LoadError error : TypeRegistry.errors()) {
+        for (LoadError error : TypeRegistry.errors()) {
             shown += report(source, "types", error.file(), error.reason());
         }
-        for (StructureRegistry.LoadError error : StructureRegistry.errors()) {
+        for (LoadError error : StructureRegistry.errors()) {
             shown += report(source, "structures", error.file(), error.reason());
         }
 
