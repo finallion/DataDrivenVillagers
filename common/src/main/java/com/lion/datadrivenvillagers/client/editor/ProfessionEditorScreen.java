@@ -165,6 +165,14 @@ public final class ProfessionEditorScreen extends Screen {
     }
 
     @Override
+    public void setFocused(Element focused) {
+        if (rowList != null && getFocused() == rowList && focused != rowList) {
+            rowList.clearFieldFocus();
+        }
+        super.setFocused(focused);
+    }
+
+    @Override
     protected void init() {
         sources.clear();
         suggestions = List.of();

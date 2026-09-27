@@ -41,27 +41,19 @@ public final class EditorRowList extends ElementListWidget<EditorRowList.Row> {
         return getRowTop(index);
     }
 
-    /// Vanilla's `setFocused(boolean)` is a no-op, so a field kept its cursor after focus moved elsewhere.
-    @Override
-    public void setFocused(boolean focused) {
-        if (!focused) {
-            clearFieldFocus();
-        }
-        super.setFocused(focused);
-    }
-
     /// Vanilla keeps a field focused after it scrolls out of view; this drops focus so it stops eating keys.
     @Override
     public void setScrollAmount(double amount) {
         super.setScrollAmount(amount);
         Row focused = getFocused();
         int index = focused == null ? -1 : children().indexOf(focused);
-        if (index >= 0 && (getRowTop(index) < getY() || getRowBottom(index) > getBottom())) {
+        if (index >= 0 && (getRowBottom(index) < getY() || getRowTop(index) > getBottom())) {
             clearFieldFocus();
         }
     }
 
-    private void clearFieldFocus() {
+    /// Vanilla does not clear a field inside the list when focus moves to a widget outside it.
+    public void clearFieldFocus() {
         Row focused = getFocused();
         if (focused != null) {
             focused.setFocused(null);
